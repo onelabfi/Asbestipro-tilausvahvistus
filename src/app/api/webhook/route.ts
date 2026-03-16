@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       });
 
       await getResend().emails.send({
-        from: 'Suomen Asbestipro Oy <noreply@asbesti.pro>',
+        from: 'Suomen Asbestipro Oy <onboarding@resend.dev>',
         to: m.email,
         subject: 'Tilaus vahvistettu',
         html: `
