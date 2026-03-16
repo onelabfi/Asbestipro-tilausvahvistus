@@ -49,7 +49,7 @@ ${order.hinta} €`;
   await calendar.events.insert({
     calendarId: process.env.GOOGLE_CALENDAR_ID,
     requestBody: {
-      summary: order.kaupunginosa,
+      summary: `✅ ${order.kaupunginosa}`,
       start: {
         dateTime: startTime.toISOString(),
         timeZone: 'Europe/Helsinki',
