@@ -25,7 +25,8 @@ export default function AdminLoginPage() {
       });
 
       if (authError) {
-        setError('Virheellinen sähköposti tai salasana');
+        console.error('Auth error:', authError.message);
+        setError(`Virhe: ${authError.message}`);
         setLoading(false);
         return;
       }
