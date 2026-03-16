@@ -96,6 +96,13 @@ export async function POST(req: NextRequest) {
 
       // 3. Add Google Calendar event
       try {
+        console.log('Calendar env check:', {
+          hasEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
+          hasKey: !!process.env.GOOGLE_PRIVATE_KEY,
+          hasCalId: !!process.env.GOOGLE_CALENDAR_ID,
+          email: process.env.GOOGLE_CLIENT_EMAIL,
+          calId: process.env.GOOGLE_CALENDAR_ID,
+        });
         await addCalendarEvent({
           kaupunginosa: m.kaupunginosa || '',
           aika: m.aika || new Date().toISOString(),
@@ -107,8 +114,10 @@ export async function POST(req: NextRequest) {
           remontti: m.remontti || '',
           hinta: parseFloat(m.hinta) || 0,
         });
-      } catch (calError) {
-        console.error('Calendar error:', calError);
+        console.log('Calendar event created successfully');
+      } catch (calError: unknown) {
+        const calMsg = calError instanceof Error ? calError.message : JSON.stringify(calError);
+        console.error('Calendar error:', calMsg);
       }
     }
 
