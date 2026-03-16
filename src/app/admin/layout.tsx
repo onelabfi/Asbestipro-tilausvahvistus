@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           .from('admin_users')
           .select('role')
           .eq('user_id', session.user.id)
-          .single();
+          .single() as { data: { role: string } | null; error: unknown };
 
         if (profileError) {
           console.error('Profile check error:', profileError);
