@@ -96,7 +96,40 @@ export default function CalendarPage() {
   const [notesValue, setNotesValue] = useState('');
   const [markingPaid, setMarkingPaid] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
+  const calendarWrapRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  // Swipe left/right to navigate prev/next
+  useEffect(() => {
+    if (!isMobile) return;
+    const el = calendarWrapRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+      const api = calendarRef.current?.getApi();
+      if (!api) return;
+      if (dx > 0) api.prev();
+      else api.next();
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isMobile]);
 
   const fetchOrders = useCallback(async () => {
     const res = await fetch('/api/orders');
@@ -227,95 +260,43 @@ export default function CalendarPage() {
     }
   };
 
-  // Route planning — build Google Maps URL for all events on a given day
-  const handleShowRoute = () => {
-    const api = calendarRef.current?.getApi();
-    if (!api) return;
-
-    const currentDate = api.getDate();
-    const dateStr = currentDate.toISOString().split('T')[0];
-
-    const dayOrders = orders
-      .filter((o) => o.aika.startsWith(dateStr))
-      .sort((a, b) => a.aika.localeCompare(b.aika));
-
-    if (dayOrders.length === 0) {
-      alert('Ei tapahtumia tänä päivänä.');
-      return;
-    }
-
-    const addresses = dayOrders.map((o) => {
-      if (o.latitude && o.longitude) return `${o.latitude},${o.longitude}`;
-      return encodeURIComponent(`${o.osoite}, ${o.kaupunki}`);
-    });
-
-    if (addresses.length === 1) {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${addresses[0]}`, '_blank');
-      return;
-    }
-
-    const origin = addresses[0];
-    const destination = addresses[addresses.length - 1];
-    const waypoints = addresses.slice(1, -1).join('|');
-
-    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
-    if (waypoints) url += `&waypoints=${waypoints}`;
-
-    window.open(url, '_blank');
-  };
-
   return (
-    <div className="p-4 lg:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Kalenteri</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleShowRoute}
-            className="bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-900 flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-            Päivän reitti
-          </button>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-1.5"
-          >
-            <span className="text-lg leading-none">+</span>
-            Lisää tapahtuma
-          </button>
+    <div className="p-2 sm:p-4 lg:p-6">
+      {/* Header — compact on mobile */}
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex flex-wrap gap-2 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />
+            Maksettu
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+            Lasku
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" />
+            Manuaalinen
+          </div>
         </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 flex items-center gap-1 shrink-0"
+        >
+          <span className="text-base leading-none">+</span>
+          <span className="hidden sm:inline">Lisää tapahtuma</span>
+          <span className="sm:hidden">Uusi</span>
+        </button>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 mb-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
-          Maksettu
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-          Lasku
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
-          Manuaalinen
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
-          Puutteellinen
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border p-2 sm:p-4">
+      <div ref={calendarWrapRef} className="bg-white rounded-xl border p-1 sm:p-4">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
           initialView={isMobile ? 'timeGridDay' : 'timeGridWeek'}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: isMobile ? 'timeGridDay,listWeek' : 'timeGridDay,timeGridWeek,dayGridMonth',
-          }}
+          headerToolbar={isMobile
+            ? { left: 'prev,next today', center: 'title', right: '' }
+            : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
+          }
           locale="fi"
           firstDay={1}
           events={events}
