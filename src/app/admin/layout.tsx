@@ -29,29 +29,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
 
     const checkAuth = async () => {
-      const supabase = getSupabaseBrowser();
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const supabase = getSupabaseBrowser();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!session) {
+        if (sessionError || !session) {
+          router.replace('/admin/login');
+          return;
+        }
+
+        // Check admin role
+        const { data: profile, error: profileError } = await supabase
+          .from('admin_users')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Profile check error:', profileError);
+          router.replace('/admin/login');
+          return;
+        }
+
+        if (!profile || profile.role !== 'admin') {
+          await supabase.auth.signOut();
+          router.replace('/');
+          return;
+        }
+
+        setAuthenticated(true);
+        setLoading(false);
+      } catch (err) {
+        console.error('Auth check failed:', err);
         router.replace('/admin/login');
-        return;
       }
-
-      // Check admin role
-      const { data: profile } = await supabase
-        .from('admin_users')
-        .select('role')
-        .eq('user_id', session.user.id)
-        .single() as { data: { role: string } | null };
-
-      if (!profile || profile.role !== 'admin') {
-        await supabase.auth.signOut();
-        router.replace('/');
-        return;
-      }
-
-      setAuthenticated(true);
-      setLoading(false);
     };
 
     checkAuth();
