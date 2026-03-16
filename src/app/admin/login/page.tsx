@@ -46,8 +46,10 @@ export default function AdminLoginPage() {
       }
 
       router.push('/admin/dashboard');
-    } catch {
-      setError('Kirjautuminen epäonnistui');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('Login catch error:', message);
+      setError(`Kirjautuminen epäonnistui: ${message}`);
       setLoading(false);
     }
   };
