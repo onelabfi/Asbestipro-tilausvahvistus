@@ -39,7 +39,8 @@ function getStatusBadgeClass(status: string) {
 }
 
 type ManualEventForm = {
-  aika: string;
+  date: string;
+  time: string;
   kaupunginosa: string;
   osoite: string;
   kaupunki: string;
@@ -51,7 +52,8 @@ type ManualEventForm = {
 };
 
 const emptyForm: ManualEventForm = {
-  aika: '',
+  date: '',
+  time: '09:00',
   kaupunginosa: '',
   osoite: '',
   kaupunki: '',
@@ -61,6 +63,13 @@ const emptyForm: ManualEventForm = {
   hinta: '',
   notes: '',
 };
+
+// Generate 30-min time slots from 07:00 to 19:00
+const TIME_SLOTS: string[] = [];
+for (let h = 7; h <= 19; h++) {
+  TIME_SLOTS.push(`${String(h).padStart(2, '0')}:00`);
+  if (h < 19) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
+}
 
 export default function CalendarPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -122,15 +131,20 @@ export default function CalendarPage() {
   // Save manual event
   const handleSaveManualEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.aika || !form.kaupunginosa) return;
+    if (!form.date || !form.time || !form.kaupunginosa) return;
     setSaving(true);
 
+    const aika = `${form.date}T${form.time}:00`;
+
     try {
+      const { date: _d, time: _t, ...rest } = form;
+      void _d; void _t;
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
+          ...rest,
+          aika,
           hinta: parseFloat(form.hinta) || 0,
           palvelu: 'Asbesti- ja haitta-ainekartoitus',
         }),
@@ -215,6 +229,8 @@ export default function CalendarPage() {
           events={events}
           editable={true}
           droppable={true}
+          snapDuration="00:30:00"
+          slotDuration="00:30:00"
           eventDrop={handleEventDrop}
           eventClick={(info) => {
             const order = info.event.extendedProps as Order;
@@ -406,17 +422,34 @@ export default function CalendarPage() {
             </div>
 
             <form onSubmit={handleSaveManualEvent} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Aika *
-                </label>
-                <input
-                  type="datetime-local"
-                  value={form.aika}
-                  onChange={(e) => setForm({ ...form, aika: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Päivä *
+                  </label>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kellonaika *
+                  </label>
+                  <select
+                    value={form.time}
+                    onChange={(e) => setForm({ ...form, time: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {TIME_SLOTS.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
