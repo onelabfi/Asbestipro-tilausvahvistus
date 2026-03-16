@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       latitude: body.latitude || 0,
       longitude: body.longitude || 0,
       payment_status: 'manual',
+      payment_method: 'manual',
       notes: body.notes || '',
     };
 

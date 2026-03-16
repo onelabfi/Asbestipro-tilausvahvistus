@@ -10,20 +10,22 @@ import type { Order } from '@/lib/supabase';
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'paid': return '#22c55e';
-    case 'manual': return '#eab308';
-    case 'unpaid':
-    case 'failed': return '#ef4444';
-    default: return '#eab308';
+    case 'paid': return '#22c55e';      // green
+    case 'unpaid': return '#3b82f6';    // blue (invoice)
+    case 'manual': return '#eab308';    // yellow
+    case 'incomplete':
+    case 'failed': return '#ef4444';    // red
+    default: return '#6b7280';
   }
 }
 
 function getStatusLabel(status: string) {
   switch (status) {
     case 'paid': return 'Maksettu';
+    case 'unpaid': return 'Lasku (maksamaton)';
     case 'manual': return 'Manuaalinen';
-    case 'unpaid':
-    case 'failed': return 'Maksamaton';
+    case 'incomplete':
+    case 'failed': return 'Puutteellinen';
     default: return status;
   }
 }
@@ -31,8 +33,9 @@ function getStatusLabel(status: string) {
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'paid': return 'bg-green-100 text-green-700';
+    case 'unpaid': return 'bg-blue-100 text-blue-700';
     case 'manual': return 'bg-yellow-100 text-yellow-700';
-    case 'unpaid':
+    case 'incomplete':
     case 'failed': return 'bg-red-100 text-red-700';
     default: return 'bg-gray-100 text-gray-700';
   }
@@ -71,6 +74,18 @@ for (let h = 7; h <= 19; h++) {
   if (h < 19) TIME_SLOTS.push(`${String(h).padStart(2, '0')}:30`);
 }
 
+// Detect mobile
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return mobile;
+}
+
 export default function CalendarPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selected, setSelected] = useState<Order | null>(null);
@@ -79,7 +94,9 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
+  const [markingPaid, setMarkingPaid] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
+  const isMobile = useIsMobile();
 
   const fetchOrders = useCallback(async () => {
     const res = await fetch('/api/orders');
@@ -119,7 +136,6 @@ export default function CalendarPage() {
         info.revert();
         return;
       }
-      // Update local state
       setOrders((prev) =>
         prev.map((o) => (o.id === eventId ? { ...o, aika: newAika } : o))
       );
@@ -185,24 +201,100 @@ export default function CalendarPage() {
     }
   };
 
+  // Mark as paid
+  const handleMarkPaid = async () => {
+    if (!selected) return;
+    setMarkingPaid(true);
+
+    try {
+      const res = await fetch(`/api/orders/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_status: 'paid', payment_method: 'manual' }),
+      });
+
+      if (res.ok) {
+        const updated = { ...selected, payment_status: 'paid', payment_method: 'manual' };
+        setOrders((prev) =>
+          prev.map((o) => (o.id === selected.id ? { ...o, payment_status: 'paid', payment_method: 'manual' } : o))
+        );
+        setSelected(updated);
+      }
+    } catch (err) {
+      console.error('Mark paid error:', err);
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
+  // Route planning — build Google Maps URL for all events on a given day
+  const handleShowRoute = () => {
+    const api = calendarRef.current?.getApi();
+    if (!api) return;
+
+    const currentDate = api.getDate();
+    const dateStr = currentDate.toISOString().split('T')[0];
+
+    const dayOrders = orders
+      .filter((o) => o.aika.startsWith(dateStr))
+      .sort((a, b) => a.aika.localeCompare(b.aika));
+
+    if (dayOrders.length === 0) {
+      alert('Ei tapahtumia tänä päivänä.');
+      return;
+    }
+
+    const addresses = dayOrders.map((o) => {
+      if (o.latitude && o.longitude) return `${o.latitude},${o.longitude}`;
+      return encodeURIComponent(`${o.osoite}, ${o.kaupunki}`);
+    });
+
+    if (addresses.length === 1) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${addresses[0]}`, '_blank');
+      return;
+    }
+
+    const origin = addresses[0];
+    const destination = addresses[addresses.length - 1];
+    const waypoints = addresses.slice(1, -1).join('|');
+
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+    if (waypoints) url += `&waypoints=${waypoints}`;
+
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="p-4 lg:p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900">Kalenteri</h1>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
-        >
-          <span className="text-lg leading-none">+</span>
-          Lisää tapahtuma
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleShowRoute}
+            className="bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-900 flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+            Päivän reitti
+          </button>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-1.5"
+          >
+            <span className="text-lg leading-none">+</span>
+            Lisää tapahtuma
+          </button>
+        </div>
       </div>
 
       {/* Legend */}
-      <div className="flex gap-4 mb-4 text-xs">
+      <div className="flex flex-wrap gap-3 mb-4 text-xs">
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
           Maksettu
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+          Lasku
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
@@ -210,19 +302,19 @@ export default function CalendarPage() {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
-          Maksamaton
+          Puutteellinen
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border p-4">
+      <div className="bg-white rounded-xl border p-2 sm:p-4">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
+          initialView={isMobile ? 'timeGridDay' : 'timeGridWeek'}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',
-            right: 'timeGridDay,timeGridWeek,dayGridMonth',
+            right: isMobile ? 'timeGridDay,listWeek' : 'timeGridDay,timeGridWeek,dayGridMonth',
           }}
           locale="fi"
           firstDay={1}
@@ -253,11 +345,11 @@ export default function CalendarPage() {
       {/* Event Detail Modal */}
       {selected && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-md w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
@@ -275,7 +367,7 @@ export default function CalendarPage() {
               </div>
               <button
                 onClick={() => setSelected(null)}
-                className="text-gray-400 hover:text-gray-600 text-xl"
+                className="text-gray-400 hover:text-gray-600 text-2xl p-1"
               >
                 &times;
               </button>
@@ -369,10 +461,20 @@ export default function CalendarPage() {
 
             {/* Action buttons */}
             <div className="mt-6 space-y-2">
+              {/* Mark as paid button — only for unpaid/invoice orders */}
+              {selected.payment_status !== 'paid' && (
+                <button
+                  onClick={handleMarkPaid}
+                  disabled={markingPaid}
+                  className="block w-full text-center bg-green-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                >
+                  {markingPaid ? 'Päivitetään...' : 'Merkitse maksetuksi'}
+                </button>
+              )}
               {selected.puhelin && (
                 <a
                   href={`tel:${selected.puhelin}`}
-                  className="block w-full text-center bg-gray-800 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-gray-900"
+                  className="block w-full text-center bg-gray-800 text-white py-3 rounded-lg text-sm font-medium hover:bg-gray-900"
                 >
                   Soita asiakkaalle
                 </a>
@@ -382,7 +484,7 @@ export default function CalendarPage() {
                   href={`https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full text-center bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700"
                 >
                   Avaa Google Maps
                 </a>
@@ -391,7 +493,7 @@ export default function CalendarPage() {
                   href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selected.osoite + ', ' + selected.kaupunki)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full text-center bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+                  className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700"
                 >
                   Avaa Google Maps
                 </a>
@@ -404,18 +506,18 @@ export default function CalendarPage() {
       {/* Add Manual Event Modal */}
       {showAddForm && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
           onClick={() => setShowAddForm(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-lg w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-lg font-bold">Lisää tapahtuma</h2>
               <button
                 onClick={() => setShowAddForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl"
+                className="text-gray-400 hover:text-gray-600 text-2xl p-1"
               >
                 &times;
               </button>
@@ -432,7 +534,7 @@ export default function CalendarPage() {
                     value={form.date}
                     onChange={(e) => setForm({ ...form, date: e.target.value })}
                     required
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -443,7 +545,7 @@ export default function CalendarPage() {
                     value={form.time}
                     onChange={(e) => setForm({ ...form, time: e.target.value })}
                     required
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {TIME_SLOTS.map((t) => (
                       <option key={t} value={t}>{t}</option>
@@ -463,7 +565,7 @@ export default function CalendarPage() {
                     onChange={(e) => setForm({ ...form, kaupunginosa: e.target.value })}
                     required
                     placeholder="esim. Töölö"
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -475,7 +577,7 @@ export default function CalendarPage() {
                     value={form.kaupunki}
                     onChange={(e) => setForm({ ...form, kaupunki: e.target.value })}
                     placeholder="esim. Helsinki"
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -489,7 +591,7 @@ export default function CalendarPage() {
                   value={form.osoite}
                   onChange={(e) => setForm({ ...form, osoite: e.target.value })}
                   placeholder="esim. Mannerheimintie 1"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -502,7 +604,7 @@ export default function CalendarPage() {
                     type="text"
                     value={form.nimi}
                     onChange={(e) => setForm({ ...form, nimi: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -513,7 +615,7 @@ export default function CalendarPage() {
                     type="tel"
                     value={form.puhelin}
                     onChange={(e) => setForm({ ...form, puhelin: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -526,7 +628,7 @@ export default function CalendarPage() {
                   type="text"
                   value={form.remontti}
                   onChange={(e) => setForm({ ...form, remontti: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -540,7 +642,7 @@ export default function CalendarPage() {
                   onChange={(e) => setForm({ ...form, hinta: e.target.value })}
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -552,7 +654,7 @@ export default function CalendarPage() {
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="esim. näyte otettu kylpyhuoneesta"
                 />
               </div>
@@ -561,14 +663,14 @@ export default function CalendarPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saving ? 'Tallennetaan...' : 'Tallenna'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200"
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg text-sm font-medium hover:bg-gray-200"
                 >
                   Peruuta
                 </button>

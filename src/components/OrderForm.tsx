@@ -46,9 +46,9 @@ const TIME_SLOTS = Array.from({ length: 25 }, (_, i) => {
 
 export default function OrderForm() {
   const [form, setForm] = useState<FormData>(initialForm);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<'stripe' | 'invoice' | null>(null);
   const [error, setError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<'stripe' | 'invoice' | null>(null);
 
   const update = (field: keyof FormData, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -59,32 +59,34 @@ export default function OrderForm() {
     return '';
   }, [form.aikaDate, form.aikaTime]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validate = (): number | null => {
     setError('');
-
     if (!form.kaupunki || !form.kaupunginosa || !form.osoite || !aika || !form.hinta || !form.nimi || !form.email || !form.puhelin) {
       setError('Täytä kaikki pakolliset kentät.');
-      return;
+      return null;
     }
-
     const hinta = parseFloat(form.hinta);
     if (isNaN(hinta) || hinta <= 0) {
       setError('Tarkista hinta.');
-      return;
+      return null;
     }
+    return hinta;
+  };
 
-    setLoading(true);
+  const handleStripe = async () => {
+    const hinta = validate();
+    if (hinta === null) return;
+
+    setLoading('stripe');
     try {
       const res = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, aika, hinta }),
       });
-
       const data = await res.json();
       if (data.url) {
-        setSubmitted(true);
+        setSubmitted('stripe');
         window.location.href = data.url;
       } else {
         setError(data.error || 'Virhe maksun luomisessa.');
@@ -92,20 +94,57 @@ export default function OrderForm() {
     } catch {
       setError('Yhteysvirhe. Yritä uudelleen.');
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
-  if (submitted) {
+  const handleInvoice = async () => {
+    const hinta = validate();
+    if (hinta === null) return;
+
+    setLoading('invoice');
+    try {
+      const invoiceTotal = hinta + 4.90;
+      const res = await fetch('/api/create-invoice-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, aika, hinta: invoiceTotal }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSubmitted('invoice');
+      } else {
+        setError(data.error || 'Virhe tilauksen luomisessa.');
+      }
+    } catch {
+      setError('Yhteysvirhe. Yritä uudelleen.');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  if (submitted === 'stripe') {
     return (
       <div className="text-center py-8">
         <p className="text-gray-600 mb-4">Siirrytään maksuun...</p>
-        <button
-          onClick={() => setSubmitted(false)}
-          className="text-blue-600 underline text-sm"
-        >
+        <button onClick={() => setSubmitted(null)} className="text-blue-600 underline text-sm">
           Palaa lomakkeelle
         </button>
+      </div>
+    );
+  }
+
+  if (submitted === 'invoice') {
+    return (
+      <div className="text-center py-8">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Tilaus vahvistettu!</h2>
+        <p className="text-gray-600 mb-1">Lasku lähetetään sähköpostiin.</p>
+        <p className="text-sm text-gray-500">Laskutuslisä 4,90 € sisältyy hintaan.</p>
       </div>
     );
   }
@@ -115,7 +154,7 @@ export default function OrderForm() {
   const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
       {/* KOHDE */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">Kohde</h2>
@@ -277,13 +316,29 @@ export default function OrderForm() {
         <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-4 px-6 rounded-lg text-lg transition-colors"
-      >
-        {loading ? 'Ladataan...' : 'Siirry maksuun'}
-      </button>
+      {/* Payment options */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900 pb-2 border-b">Maksutapa</h2>
+        <button
+          type="button"
+          onClick={handleStripe}
+          disabled={!!loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-4 px-6 rounded-lg text-lg transition-colors"
+        >
+          {loading === 'stripe' ? 'Ladataan...' : 'Maksa nyt (kortilla)'}
+        </button>
+        <button
+          type="button"
+          onClick={handleInvoice}
+          disabled={!!loading}
+          className="w-full bg-gray-800 hover:bg-gray-900 disabled:bg-gray-500 text-white font-semibold py-4 px-6 rounded-lg text-base transition-colors"
+        >
+          {loading === 'invoice' ? 'Ladataan...' : 'Maksa myöhemmin laskulla (+4,90 €)'}
+        </button>
+        <p className="text-xs text-gray-400 text-center">
+          Laskutuslisä 4,90 € lisätään hintaan valittaessa laskumaksu.
+        </p>
+      </div>
     </form>
   );
 }

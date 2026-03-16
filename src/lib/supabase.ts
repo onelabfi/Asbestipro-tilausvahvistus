@@ -29,6 +29,7 @@ export type Order = {
   email: string;
   puhelin: string;
   payment_status: string;
+  payment_method: string;
   stripe_session_id: string;
   notes: string;
 };

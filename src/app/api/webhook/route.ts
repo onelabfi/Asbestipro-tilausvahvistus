@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         email: m.email || '',
         puhelin: m.puhelin || '',
         payment_status: 'paid',
+        payment_method: 'stripe',
         stripe_session_id: session.id,
       };
 
