@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import OrderForm from '@/components/OrderForm';
 
 export default function Home() {
@@ -30,9 +31,11 @@ export default function Home() {
           <OrderForm />
         </div>
 
-        {/* Footer */}
+        {/* Footer - hidden admin link */}
         <p className="text-center text-xs text-gray-500 mt-8">
-          Suomen Asbestipro Oy
+          <Link href="/admin" className="hover:text-gray-400 transition-colors">
+            &copy; Suomen Asbestipro Oy
+          </Link>
         </p>
       </div>
     </main>

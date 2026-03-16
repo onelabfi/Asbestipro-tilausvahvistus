@@ -196,13 +196,8 @@ export default function MapPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="text-blue-600 text-sm font-medium">
-            &larr; Kalenteri
-          </Link>
-          <h1 className="text-lg font-bold">Kartta</h1>
-        </div>
+      <div className="bg-white border-b px-4 py-3">
+        <h1 className="text-lg font-bold">Kartta</h1>
       </div>
 
       {/* Filters */}

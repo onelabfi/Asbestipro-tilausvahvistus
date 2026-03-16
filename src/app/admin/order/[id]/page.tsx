@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { Order } from '@/lib/supabase';
-import Link from 'next/link';
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -57,9 +56,9 @@ export default function OrderDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b px-4 py-3 flex items-center gap-4">
-        <Link href="/admin" className="text-blue-600 text-sm font-medium">
+        <button onClick={() => window.history.back()} className="text-blue-600 text-sm font-medium">
           &larr; Takaisin
-        </Link>
+        </button>
         <h1 className="text-lg font-bold">Tilaus</h1>
       </div>
 
