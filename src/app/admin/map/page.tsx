@@ -52,12 +52,15 @@ export default function MapPage() {
 
     loader.importLibrary('maps').then(async () => {
       await google.maps.importLibrary('marker');
-      mapInstance.current = new google.maps.Map(mapRef.current!, {
+      if (!mapRef.current) return;
+      mapInstance.current = new google.maps.Map(mapRef.current, {
         center: { lat: 60.17, lng: 24.94 },
         zoom: 11,
         mapId: 'asbestipro-map',
       });
       infoWindowRef.current = new google.maps.InfoWindow();
+    }).catch((err) => {
+      console.error('Google Maps load error:', err);
     });
   }, []);
 
@@ -156,8 +159,11 @@ export default function MapPage() {
       (a, b) => new Date(a.aika).getTime() - new Date(b.aika).getTime()
     );
 
-    const waypoints = sorted.slice(1, -1).map((o) => ({
-      location: { lat: o.latitude, lng: o.longitude },
+    const validSorted = sorted.filter((o) => o.latitude && o.longitude);
+    if (validSorted.length < 2) return;
+
+    const waypoints = validSorted.slice(1, -1).map((o) => ({
+      location: { lat: o.latitude!, lng: o.longitude! },
       stopover: true,
     }));
 
@@ -174,10 +180,10 @@ export default function MapPage() {
 
     directionsService.route(
       {
-        origin: { lat: sorted[0].latitude, lng: sorted[0].longitude },
+        origin: { lat: validSorted[0].latitude!, lng: validSorted[0].longitude! },
         destination: {
-          lat: sorted[sorted.length - 1].latitude,
-          lng: sorted[sorted.length - 1].longitude,
+          lat: validSorted[validSorted.length - 1].latitude!,
+          lng: validSorted[validSorted.length - 1].longitude!,
         },
         waypoints,
         travelMode: google.maps.TravelMode.DRIVING,
