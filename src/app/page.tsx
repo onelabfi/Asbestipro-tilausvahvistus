@@ -3,9 +3,9 @@ import OrderForm from '@/components/OrderForm';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen" style={{ backgroundColor: '#101921' }}>
       {/* Header */}
-      <div className="w-full py-8 mb-6" style={{ backgroundColor: '#101921' }}>
+      <div className="w-full py-8">
         <div className="max-w-lg mx-auto px-4">
           <div className="flex justify-center mb-4">
             <Image
@@ -23,15 +23,15 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4">
+      <div className="max-w-lg mx-auto px-4 pb-8">
 
         {/* Form */}
-        <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
           <OrderForm />
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-gray-400 mt-8">
+        <p className="text-center text-xs text-gray-500 mt-8">
           Suomen Asbestipro Oy
         </p>
       </div>

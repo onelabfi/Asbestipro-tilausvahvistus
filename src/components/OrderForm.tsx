@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AddressAutocomplete from './AddressAutocomplete';
 
 type FormData = {
@@ -11,7 +11,8 @@ type FormData = {
   latitude: number;
   longitude: number;
   palvelu: string;
-  aika: string;
+  aikaDate: string;
+  aikaTime: string;
   hinta: string;
   remontti: string;
   nimi: string;
@@ -27,7 +28,8 @@ const initialForm: FormData = {
   latitude: 0,
   longitude: 0,
   palvelu: 'Asbesti- ja haitta-ainekartoitus',
-  aika: '',
+  aikaDate: '',
+  aikaTime: '',
   hinta: '',
   remontti: '',
   nimi: '',
@@ -35,20 +37,33 @@ const initialForm: FormData = {
   puhelin: '',
 };
 
+// Generate 30-min time slots from 07:00 to 19:00
+const TIME_SLOTS = Array.from({ length: 25 }, (_, i) => {
+  const h = Math.floor(i / 2) + 7;
+  const m = (i % 2) * 30;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+});
+
 export default function OrderForm() {
   const [form, setForm] = useState<FormData>(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const update = (field: keyof FormData, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const aika = useMemo(() => {
+    if (form.aikaDate && form.aikaTime) return `${form.aikaDate}T${form.aikaTime}`;
+    return '';
+  }, [form.aikaDate, form.aikaTime]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!form.kaupunki || !form.kaupunginosa || !form.osoite || !form.aika || !form.hinta || !form.nimi || !form.email || !form.puhelin) {
+    if (!form.kaupunki || !form.kaupunginosa || !form.osoite || !aika || !form.hinta || !form.nimi || !form.email || !form.puhelin) {
       setError('Täytä kaikki pakolliset kentät.');
       return;
     }
@@ -64,11 +79,12 @@ export default function OrderForm() {
       const res = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, hinta }),
+        body: JSON.stringify({ ...form, aika, hinta }),
       });
 
       const data = await res.json();
       if (data.url) {
+        setSubmitted(true);
         window.location.href = data.url;
       } else {
         setError(data.error || 'Virhe maksun luomisessa.');
@@ -79,6 +95,20 @@ export default function OrderForm() {
       setLoading(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-600 mb-4">Siirrytään maksuun...</p>
+        <button
+          onClick={() => setSubmitted(false)}
+          className="text-blue-600 underline text-sm"
+        >
+          Palaa lomakkeelle
+        </button>
+      </div>
+    );
+  }
 
   const inputClass =
     'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-base';
@@ -114,8 +144,8 @@ export default function OrderForm() {
                 type="text"
                 value={form.postinumero}
                 onChange={(e) => update('postinumero', e.target.value)}
+                placeholder="00100"
                 className={inputClass}
-                readOnly
               />
             </div>
             <div>
@@ -157,14 +187,29 @@ export default function OrderForm() {
               </option>
             </select>
           </div>
-          <div>
-            <label className={labelClass}>Sovittu aika *</label>
-            <input
-              type="datetime-local"
-              value={form.aika}
-              onChange={(e) => update('aika', e.target.value)}
-              className={inputClass}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Päivämäärä *</label>
+              <input
+                type="date"
+                value={form.aikaDate}
+                onChange={(e) => update('aikaDate', e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Kellonaika *</label>
+              <select
+                value={form.aikaTime}
+                onChange={(e) => update('aikaTime', e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Valitse</option>
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div>
             <label className={labelClass}>Sovittu hinta (€) *</label>
