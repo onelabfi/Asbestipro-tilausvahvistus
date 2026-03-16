@@ -31,21 +31,30 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Check admin role
+      // Check role
       const { data: profile } = await supabase
         .from('admin_users')
         .select('role')
         .eq('user_id', data.user.id)
         .single() as { data: { role: string } | null };
 
-      if (!profile || profile.role !== 'admin') {
+      if (!profile) {
         await supabase.auth.signOut();
-        setError('Ei admin-oikeuksia');
+        setError('Ei käyttöoikeuksia');
         setLoading(false);
         return;
       }
 
-      router.push('/admin/dashboard');
+      // Redirect based on role
+      if (profile.role === 'admin') {
+        router.push('/admin/dashboard');
+      } else if (profile.role === 'field_user') {
+        router.push('/admin/calendar');
+      } else {
+        await supabase.auth.signOut();
+        setError('Ei käyttöoikeuksia');
+        setLoading(false);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('Login catch error:', message);
@@ -59,7 +68,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-xl shadow-sm border p-8">
           <h1 className="text-xl font-bold text-gray-900 text-center mb-6">
-            Admin Login
+            Kirjaudu sisään
           </h1>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -73,7 +82,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="admin@asbesti.pro"
+                placeholder="email@asbesti.pro"
               />
             </div>
 

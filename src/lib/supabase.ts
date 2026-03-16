@@ -30,4 +30,7 @@ export type Order = {
   puhelin: string;
   payment_status: string;
   stripe_session_id: string;
+  notes: string;
 };
+
+export type UserRole = 'admin' | 'field_user';

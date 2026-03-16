@@ -4,22 +4,30 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import Link from 'next/link';
+import type { UserRole } from '@/lib/supabase';
 
-const NAV_ITEMS = [
+const ADMIN_NAV = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/admin/calendar', label: 'Kalenteri', icon: '📅' },
   { href: '/admin/map', label: 'Kartta', icon: '🗺️' },
   { href: '/admin/orders', label: 'Tilaukset', icon: '📋' },
 ];
 
+const FIELD_USER_NAV = [
+  { href: '/admin/calendar', label: 'Kalenteri', icon: '📅' },
+];
+
+// Pages accessible by field_user
+const FIELD_USER_PAGES = ['/admin/calendar', '/admin/order'];
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole>('admin');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
-  // Login page doesn't need the layout wrapper
   const isLoginPage = pathname === '/admin/login';
 
   useEffect(() => {
@@ -38,25 +46,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           return;
         }
 
-        // Check admin role
+        // Check user role
         const { data: profile, error: profileError } = await supabase
           .from('admin_users')
           .select('role')
           .eq('user_id', session.user.id)
           .single() as { data: { role: string } | null; error: unknown };
 
-        if (profileError) {
+        if (profileError || !profile) {
           console.error('Profile check error:', profileError);
+          await supabase.auth.signOut();
           router.replace('/admin/login');
           return;
         }
 
-        if (!profile || profile.role !== 'admin') {
-          await supabase.auth.signOut();
-          router.replace('/');
-          return;
+        const role = profile.role as UserRole;
+
+        // Field users can only access calendar and order detail pages
+        if (role === 'field_user') {
+          const isAllowed = FIELD_USER_PAGES.some(
+            (page) => pathname === page || pathname.startsWith(page + '/')
+          );
+          if (!isAllowed) {
+            router.replace('/admin/calendar');
+            return;
+          }
         }
 
+        setUserRole(role);
         setAuthenticated(true);
         setLoading(false);
       } catch (err) {
@@ -66,7 +83,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     checkAuth();
-  }, [isLoginPage, router]);
+  }, [isLoginPage, router, pathname]);
 
   const handleLogout = async () => {
     const supabase = getSupabaseBrowser();
@@ -85,6 +102,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!authenticated) return null;
+
+  const navItems = userRole === 'admin' ? ADMIN_NAV : FIELD_USER_NAV;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -113,12 +132,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }`}
       >
         <div className="px-5 py-5 border-b border-gray-700">
-          <h1 className="text-base font-bold">Admin</h1>
+          <h1 className="text-base font-bold">
+            {userRole === 'admin' ? 'Admin' : 'Kartoittaja'}
+          </h1>
           <p className="text-xs text-gray-400 mt-0.5">Suomen Asbestipro</p>
         </div>
 
         <nav className="flex-1 py-4">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
               <Link

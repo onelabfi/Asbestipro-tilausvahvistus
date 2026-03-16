@@ -4,6 +4,26 @@ import { useEffect, useState, useCallback } from 'react';
 import type { Order } from '@/lib/supabase';
 import Link from 'next/link';
 
+function getStatusLabel(status: string) {
+  switch (status) {
+    case 'paid': return 'Maksettu';
+    case 'manual': return 'Manuaalinen';
+    case 'unpaid':
+    case 'failed': return 'Maksamaton';
+    default: return status;
+  }
+}
+
+function getStatusBadgeClass(status: string) {
+  switch (status) {
+    case 'paid': return 'bg-green-100 text-green-700';
+    case 'manual': return 'bg-yellow-100 text-yellow-700';
+    case 'unpaid':
+    case 'failed': return 'bg-red-100 text-red-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filterStatus, setFilterStatus] = useState('');
@@ -50,8 +70,8 @@ export default function OrdersPage() {
         >
           <option value="">Kaikki statukset</option>
           <option value="paid">Maksettu</option>
-          <option value="pending">Odottaa</option>
-          <option value="failed">Epäonnistunut</option>
+          <option value="manual">Manuaalinen</option>
+          <option value="unpaid">Maksamaton</option>
         </select>
         <span className="text-sm text-gray-500 self-center ml-auto">
           {orders.length} tilausta
@@ -90,24 +110,14 @@ export default function OrdersPage() {
                 </td>
                 <td className="px-5 py-3">{o.nimi}</td>
                 <td className="px-5 py-3">
-                  <a href={`tel:${o.puhelin}`} className="text-blue-600">{o.puhelin}</a>
+                  {o.puhelin ? (
+                    <a href={`tel:${o.puhelin}`} className="text-blue-600">{o.puhelin}</a>
+                  ) : '-'}
                 </td>
                 <td className="px-5 py-3 font-medium">{o.hinta} €</td>
                 <td className="px-5 py-3">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                      o.payment_status === 'paid'
-                        ? 'bg-green-100 text-green-700'
-                        : o.payment_status === 'failed'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}
-                  >
-                    {o.payment_status === 'paid'
-                      ? 'Maksettu'
-                      : o.payment_status === 'failed'
-                      ? 'Epäonnistunut'
-                      : 'Odottaa'}
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getStatusBadgeClass(o.payment_status)}`}>
+                    {getStatusLabel(o.payment_status)}
                   </span>
                 </td>
               </tr>

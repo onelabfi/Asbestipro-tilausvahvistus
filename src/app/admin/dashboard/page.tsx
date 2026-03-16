@@ -117,15 +117,19 @@ export default function DashboardPage() {
                       className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                         o.payment_status === 'paid'
                           ? 'bg-green-100 text-green-700'
-                          : o.payment_status === 'failed'
+                          : o.payment_status === 'manual'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : o.payment_status === 'failed' || o.payment_status === 'unpaid'
                           ? 'bg-red-100 text-red-700'
                           : 'bg-yellow-100 text-yellow-700'
                       }`}
                     >
                       {o.payment_status === 'paid'
                         ? 'Maksettu'
-                        : o.payment_status === 'failed'
-                        ? 'Epäonnistunut'
+                        : o.payment_status === 'manual'
+                        ? 'Manuaalinen'
+                        : o.payment_status === 'failed' || o.payment_status === 'unpaid'
+                        ? 'Maksamaton'
                         : 'Odottaa'}
                     </span>
                   </td>
