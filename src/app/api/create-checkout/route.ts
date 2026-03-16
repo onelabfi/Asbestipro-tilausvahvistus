@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
-      success_url: `${appUrl}/success`,
+      success_url: 'https://asbesti.pro/success',
       cancel_url: appUrl,
       customer_email: email,
       metadata: {
