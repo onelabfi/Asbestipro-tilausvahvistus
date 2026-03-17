@@ -48,7 +48,7 @@ export default function OrderForm() {
   const [form, setForm] = useState<FormData>(initialForm);
   const [loading, setLoading] = useState<'stripe' | 'invoice' | null>(null);
   const [error, setError] = useState('');
-  const [submitted, setSubmitted] = useState<'stripe' | 'invoice' | null>(null);
+  const [submitted, setSubmitted] = useState<'stripe' | null>(null);
 
   const update = (field: keyof FormData, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -98,29 +98,19 @@ export default function OrderForm() {
     }
   };
 
-  const handleInvoice = async () => {
+  const handleInvoice = () => {
     const hinta = validate();
     if (hinta === null) return;
 
     setLoading('invoice');
-    try {
-      const invoiceTotal = hinta + 4.90;
-      const res = await fetch('/api/create-invoice-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, aika, hinta: invoiceTotal }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSubmitted('invoice');
-      } else {
-        setError(data.error || 'Virhe tilauksen luomisessa.');
-      }
-    } catch {
-      setError('Yhteysvirhe. Yritä uudelleen.');
-    } finally {
-      setLoading(null);
-    }
+    // Store form data in localStorage and redirect to invoice confirmation page
+    const orderData = {
+      ...form,
+      aika,
+      hinta: String(hinta),
+    };
+    localStorage.setItem('invoice_order_data', JSON.stringify(orderData));
+    window.location.href = '/invoice-confirmation';
   };
 
   if (submitted === 'stripe') {
@@ -130,21 +120,6 @@ export default function OrderForm() {
         <button onClick={() => setSubmitted(null)} className="text-blue-600 underline text-sm">
           Palaa lomakkeelle
         </button>
-      </div>
-    );
-  }
-
-  if (submitted === 'invoice') {
-    return (
-      <div className="text-center py-8">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Tilaus vahvistettu!</h2>
-        <p className="text-gray-600 mb-1">Lasku lähetetään sähköpostiin.</p>
-        <p className="text-sm text-gray-500">Laskutuslisä 4,90 € sisältyy hintaan.</p>
       </div>
     );
   }

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getSupabase } from '@/lib/supabase';
 import { getResend } from '@/lib/resend';
-import { addCalendarEvent } from '@/lib/google-calendar';
 import Stripe from 'stripe';
 
 export async function POST(req: NextRequest) {
@@ -36,7 +35,8 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       const m = session.metadata || {};
 
-      console.log('Webhook received, metadata:', JSON.stringify(m));
+      const price = parseFloat(m.hinta) || 0;
+      const amountPaid = (session.amount_total || 0) / 100;
 
       const orderData = {
         kaupunki: m.kaupunki || '',
@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
         palvelu: m.palvelu || '',
         remontti: m.remontti || '',
         aika: m.aika || new Date().toISOString(),
-        hinta: parseFloat(m.hinta) || 0,
+        hinta: price,
+        maksettu_summa: amountPaid || price,
         nimi: m.nimi || '',
         email: m.email || '',
         puhelin: m.puhelin || '',
@@ -57,11 +58,11 @@ export async function POST(req: NextRequest) {
         stripe_session_id: session.id,
       };
 
-      // 1. Save to database
+      // Save to database
       const { error: dbError } = await getSupabase().from('orders').insert(orderData);
       if (dbError) console.error('DB error:', JSON.stringify(dbError));
 
-      // 2. Send confirmation email
+      // Send confirmation email
       try {
         const aikaDate = new Date(m.aika);
         const aikaStr = aikaDate.toLocaleDateString('fi-FI', {
@@ -93,32 +94,6 @@ export async function POST(req: NextRequest) {
         });
       } catch (emailError) {
         console.error('Email error:', emailError);
-      }
-
-      // 3. Add Google Calendar event
-      try {
-        console.log('Calendar env check:', {
-          hasEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
-          hasKey: !!process.env.GOOGLE_PRIVATE_KEY,
-          hasCalId: !!process.env.GOOGLE_CALENDAR_ID,
-          email: process.env.GOOGLE_CLIENT_EMAIL,
-          calId: process.env.GOOGLE_CALENDAR_ID,
-        });
-        await addCalendarEvent({
-          kaupunginosa: m.kaupunginosa || '',
-          aika: m.aika || new Date().toISOString(),
-          nimi: m.nimi || '',
-          puhelin: m.puhelin || '',
-          email: m.email || '',
-          osoite: m.osoite || '',
-          postinumero: m.postinumero || '',
-          remontti: m.remontti || '',
-          hinta: parseFloat(m.hinta) || 0,
-        });
-        console.log('Calendar event created successfully');
-      } catch (calError: unknown) {
-        const calMsg = calError instanceof Error ? calError.message : JSON.stringify(calError);
-        console.error('Calendar error:', calMsg);
       }
     }
 

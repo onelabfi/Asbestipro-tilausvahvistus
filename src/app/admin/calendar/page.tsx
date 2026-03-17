@@ -10,22 +10,22 @@ import type { Order } from '@/lib/supabase';
 
 function getStatusColor(status: string) {
   switch (status) {
-    case 'paid': return '#22c55e';      // green
-    case 'unpaid': return '#3b82f6';    // blue (invoice)
-    case 'manual': return '#eab308';    // yellow
+    case 'paid': return '#22c55e';       // green
+    case 'unpaid': return '#3b82f6';     // blue (invoiced)
+    case 'partial':
     case 'incomplete':
-    case 'failed': return '#ef4444';    // red
+    case 'failed': return '#ef4444';     // red
     default: return '#6b7280';
   }
 }
 
 function getStatusLabel(status: string) {
   switch (status) {
-    case 'paid': return 'Maksettu';
-    case 'unpaid': return 'Lasku (maksamaton)';
-    case 'manual': return 'Manuaalinen';
+    case 'paid': return 'Paid';
+    case 'unpaid': return 'Invoiced';
+    case 'partial': return 'Partial';
     case 'incomplete':
-    case 'failed': return 'Puutteellinen';
+    case 'failed': return 'Incomplete';
     default: return status;
   }
 }
@@ -34,7 +34,7 @@ function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'paid': return 'bg-green-100 text-green-700';
     case 'unpaid': return 'bg-blue-100 text-blue-700';
-    case 'manual': return 'bg-yellow-100 text-yellow-700';
+    case 'partial':
     case 'incomplete':
     case 'failed': return 'bg-red-100 text-red-700';
     default: return 'bg-gray-100 text-gray-700';
@@ -49,6 +49,7 @@ type ManualEventForm = {
   kaupunki: string;
   nimi: string;
   puhelin: string;
+  email: string;
   remontti: string;
   hinta: string;
   notes: string;
@@ -62,6 +63,7 @@ const emptyForm: ManualEventForm = {
   kaupunki: '',
   nimi: '',
   puhelin: '',
+  email: '',
   remontti: '',
   hinta: '',
   notes: '',
@@ -95,6 +97,11 @@ export default function CalendarPage() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [addingPayment, setAddingPayment] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -143,7 +150,7 @@ export default function CalendarPage() {
 
   const events = orders.map((o) => ({
     id: o.id,
-    title: `${o.kaupunginosa} - ${o.nimi}`,
+    title: `${o.kaupunginosa} - ${o.nimi || '?'}`,
     start: o.aika,
     end: new Date(new Date(o.aika).getTime() + 30 * 60 * 1000).toISOString(),
     backgroundColor: getStatusColor(o.payment_status),
@@ -180,7 +187,7 @@ export default function CalendarPage() {
   // Save manual event
   const handleSaveManualEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.date || !form.time || !form.kaupunginosa) return;
+    if (!form.date || !form.time || !form.kaupunginosa || !form.osoite || !form.kaupunki || !form.nimi || !form.puhelin || !form.hinta) return;
     setSaving(true);
 
     const aika = `${form.date}T${form.time}:00`;
@@ -234,7 +241,7 @@ export default function CalendarPage() {
     }
   };
 
-  // Mark as paid
+  // Mark as paid (override)
   const handleMarkPaid = async () => {
     if (!selected) return;
     setMarkingPaid(true);
@@ -247,11 +254,11 @@ export default function CalendarPage() {
       });
 
       if (res.ok) {
-        const updated = { ...selected, payment_status: 'paid', payment_method: 'manual' };
+        const data = await res.json();
         setOrders((prev) =>
-          prev.map((o) => (o.id === selected.id ? { ...o, payment_status: 'paid', payment_method: 'manual' } : o))
+          prev.map((o) => (o.id === selected.id ? data : o))
         );
-        setSelected(updated);
+        setSelected(data);
       }
     } catch (err) {
       console.error('Mark paid error:', err);
@@ -260,22 +267,76 @@ export default function CalendarPage() {
     }
   };
 
+  // Add partial payment
+  const handleAddPayment = async () => {
+    if (!selected || !paymentAmount) return;
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) return;
+
+    setAddingPayment(true);
+    try {
+      const res = await fetch(`/api/orders/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ add_payment: amount }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setOrders((prev) =>
+          prev.map((o) => (o.id === selected.id ? data : o))
+        );
+        setSelected(data);
+        setShowAddPayment(false);
+        setPaymentAmount('');
+      }
+    } catch (err) {
+      console.error('Add payment error:', err);
+    } finally {
+      setAddingPayment(false);
+    }
+  };
+
+  // Delete event
+  const handleDelete = async () => {
+    if (!selected) return;
+    setDeleting(true);
+
+    try {
+      const res = await fetch(`/api/orders/${selected.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setOrders((prev) => prev.filter((o) => o.id !== selected.id));
+        setSelected(null);
+        setShowDeleteConfirm(false);
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const remaining = selected ? (selected.hinta || 0) - (selected.maksettu_summa || 0) : 0;
+
   return (
     <div className="p-2 sm:p-4 lg:p-6">
-      {/* Header — compact on mobile */}
+      {/* Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex flex-wrap gap-2 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />
-            Maksettu
+            Paid
           </div>
           <div className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
-            Lasku
+            Invoiced
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" />
-            Manuaalinen
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
+            Incomplete
           </div>
         </div>
         <button
@@ -283,8 +344,8 @@ export default function CalendarPage() {
           className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 flex items-center gap-1 shrink-0"
         >
           <span className="text-base leading-none">+</span>
-          <span className="hidden sm:inline">Lisää tapahtuma</span>
-          <span className="sm:hidden">Uusi</span>
+          <span className="hidden sm:inline">Add Event</span>
+          <span className="sm:hidden">New</span>
         </button>
       </div>
 
@@ -297,7 +358,7 @@ export default function CalendarPage() {
             ? { left: 'prev,next today', center: 'title', right: '' }
             : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
           }
-          locale="fi"
+          locale="en"
           firstDay={1}
           events={events}
           editable={true}
@@ -310,6 +371,8 @@ export default function CalendarPage() {
             setSelected(order);
             setNotesValue(order.notes || '');
             setEditingNotes(false);
+            setShowAddPayment(false);
+            setShowDeleteConfirm(false);
           }}
           height="auto"
           slotMinTime="06:00:00"
@@ -337,7 +400,7 @@ export default function CalendarPage() {
               <div>
                 <h2 className="text-lg font-bold">{selected.kaupunginosa}</h2>
                 <p className="text-sm text-gray-500">
-                  {new Date(selected.aika).toLocaleDateString('fi-FI', {
+                  {new Date(selected.aika).toLocaleDateString('en-GB', {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'numeric',
@@ -364,11 +427,11 @@ export default function CalendarPage() {
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-gray-500">Asiakas</span>
+                  <span className="text-gray-500">Customer</span>
                   <p className="font-medium">{selected.nimi || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Puhelin</span>
+                  <span className="text-gray-500">Phone</span>
                   <p className="font-medium">
                     {selected.puhelin ? (
                       <a href={`tel:${selected.puhelin}`} className="text-blue-600">{selected.puhelin}</a>
@@ -377,32 +440,51 @@ export default function CalendarPage() {
                 </div>
               </div>
               <div>
-                <span className="text-gray-500">Osoite</span>
+                <span className="text-gray-500">Address</span>
                 <p className="font-medium">
                   {selected.osoite}{selected.kaupunginosa ? `, ${selected.kaupunginosa}` : ''}{selected.kaupunki ? `, ${selected.kaupunki}` : ''}
                 </p>
               </div>
+
+              {/* Payment details */}
+              <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Agreed Price</span>
+                  <span className="font-medium">{(selected.hinta || 0).toFixed(2)} €</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Paid</span>
+                  <span className="font-medium">{(selected.maksettu_summa || 0).toFixed(2)} €</span>
+                </div>
+                {remaining > 0 && (
+                  <div className="flex justify-between border-t pt-1">
+                    <span className="text-red-600 font-medium">Remaining</span>
+                    <span className="text-red-600 font-bold">{remaining.toFixed(2)} €</span>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-gray-500">Remontti</span>
+                  <span className="text-gray-500">Renovation</span>
                   <p className="font-medium">{selected.remontti || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Hinta</span>
-                  <p className="font-medium">{selected.hinta} €</p>
+                  <span className="text-gray-500">Method</span>
+                  <p className="font-medium capitalize">{selected.payment_method || '-'}</p>
                 </div>
               </div>
 
               {/* Notes section */}
               <div className="border-t pt-3 mt-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-gray-500 font-medium">Muistiinpanot</span>
+                  <span className="text-gray-500 font-medium">Notes</span>
                   {!editingNotes && (
                     <button
                       onClick={() => setEditingNotes(true)}
                       className="text-blue-600 text-xs hover:underline"
                     >
-                      Muokkaa
+                      Edit
                     </button>
                   )}
                 </div>
@@ -412,14 +494,14 @@ export default function CalendarPage() {
                       value={notesValue}
                       onChange={(e) => setNotesValue(e.target.value)}
                       className="w-full border rounded-lg p-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Lisää muistiinpano..."
+                      placeholder="Add a note..."
                     />
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={handleSaveNotes}
                         className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700"
                       >
-                        Tallenna
+                        Save
                       </button>
                       <button
                         onClick={() => {
@@ -428,28 +510,90 @@ export default function CalendarPage() {
                         }}
                         className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-200"
                       >
-                        Peruuta
+                        Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {selected.notes || <span className="text-gray-400 italic">Ei muistiinpanoja</span>}
+                    {selected.notes || <span className="text-gray-400 italic">No notes</span>}
                   </p>
                 )}
               </div>
             </div>
 
+            {/* Add payment inline form */}
+            {showAddPayment && (
+              <div className="mt-4 bg-gray-50 rounded-lg p-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (€)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder={remaining > 0 ? remaining.toFixed(2) : '0'}
+                    min="0"
+                    step="0.01"
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleAddPayment}
+                    disabled={addingPayment}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {addingPayment ? '...' : 'Add'}
+                  </button>
+                  <button
+                    onClick={() => { setShowAddPayment(false); setPaymentAmount(''); }}
+                    className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Delete confirmation */}
+            {showDeleteConfirm && (
+              <div className="mt-4 bg-red-50 rounded-lg p-3">
+                <p className="text-sm text-red-700 mb-2">Are you sure you want to delete this event?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="mt-6 space-y-2">
-              {/* Mark as paid button — only for unpaid/invoice orders */}
+              {/* Add payment button */}
+              {selected.payment_status !== 'paid' && !showAddPayment && (
+                <button
+                  onClick={() => setShowAddPayment(true)}
+                  className="block w-full text-center bg-orange-500 text-white py-3 rounded-lg text-sm font-medium hover:bg-orange-600"
+                >
+                  Add Payment
+                </button>
+              )}
+              {/* Mark as paid (override) */}
               {selected.payment_status !== 'paid' && (
                 <button
                   onClick={handleMarkPaid}
                   disabled={markingPaid}
                   className="block w-full text-center bg-green-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
                 >
-                  {markingPaid ? 'Päivitetään...' : 'Merkitse maksetuksi'}
+                  {markingPaid ? 'Updating...' : 'Mark as Paid'}
                 </button>
               )}
               {selected.puhelin && (
@@ -457,7 +601,7 @@ export default function CalendarPage() {
                   href={`tel:${selected.puhelin}`}
                   className="block w-full text-center bg-gray-800 text-white py-3 rounded-lg text-sm font-medium hover:bg-gray-900"
                 >
-                  Soita asiakkaalle
+                  Call Customer
                 </a>
               )}
               {(selected.latitude && selected.longitude) ? (
@@ -467,7 +611,7 @@ export default function CalendarPage() {
                   rel="noopener noreferrer"
                   className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700"
                 >
-                  Avaa Google Maps
+                  Open Google Maps
                 </a>
               ) : selected.osoite ? (
                 <a
@@ -476,9 +620,18 @@ export default function CalendarPage() {
                   rel="noopener noreferrer"
                   className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700"
                 >
-                  Avaa Google Maps
+                  Open Google Maps
                 </a>
               ) : null}
+              {/* Delete button */}
+              {!showDeleteConfirm && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="block w-full text-center bg-white border border-red-300 text-red-600 py-3 rounded-lg text-sm font-medium hover:bg-red-50"
+                >
+                  Delete Event
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -495,7 +648,7 @@ export default function CalendarPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-lg font-bold">Lisää tapahtuma</h2>
+              <h2 className="text-lg font-bold">Add Event</h2>
               <button
                 onClick={() => setShowAddForm(false)}
                 className="text-gray-400 hover:text-gray-600 text-2xl p-1"
@@ -508,7 +661,7 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Päivä *
+                    Date *
                   </label>
                   <input
                     type="date"
@@ -520,7 +673,7 @@ export default function CalendarPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kellonaika *
+                    Time *
                   </label>
                   <select
                     value={form.time}
@@ -538,26 +691,27 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kaupunginosa *
+                    District *
                   </label>
                   <input
                     type="text"
                     value={form.kaupunginosa}
                     onChange={(e) => setForm({ ...form, kaupunginosa: e.target.value })}
                     required
-                    placeholder="esim. Töölö"
+                    placeholder="e.g. Töölö"
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kaupunki
+                    City *
                   </label>
                   <input
                     type="text"
                     value={form.kaupunki}
                     onChange={(e) => setForm({ ...form, kaupunki: e.target.value })}
-                    placeholder="esim. Helsinki"
+                    required
+                    placeholder="e.g. Helsinki"
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -565,13 +719,14 @@ export default function CalendarPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Osoite
+                  Address *
                 </label>
                 <input
                   type="text"
                   value={form.osoite}
                   onChange={(e) => setForm({ ...form, osoite: e.target.value })}
-                  placeholder="esim. Mannerheimintie 1"
+                  required
+                  placeholder="e.g. Mannerheimintie 1"
                   className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -579,23 +734,25 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Asiakkaan nimi
+                    Customer Name *
                   </label>
                   <input
                     type="text"
                     value={form.nimi}
                     onChange={(e) => setForm({ ...form, nimi: e.target.value })}
+                    required
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Puhelin
+                    Phone *
                   </label>
                   <input
                     type="tel"
                     value={form.puhelin}
                     onChange={(e) => setForm({ ...form, puhelin: e.target.value })}
+                    required
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -603,7 +760,19 @@ export default function CalendarPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Remontin kuvaus
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Renovation Description
                 </label>
                 <input
                   type="text"
@@ -615,12 +784,13 @@ export default function CalendarPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hinta (€)
+                  Price (€) *
                 </label>
                 <input
                   type="number"
                   value={form.hinta}
                   onChange={(e) => setForm({ ...form, hinta: e.target.value })}
+                  required
                   min="0"
                   step="0.01"
                   className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -629,14 +799,14 @@ export default function CalendarPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Muistiinpanot
+                  Notes
                 </label>
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={2}
                   className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="esim. näyte otettu kylpyhuoneesta"
+                  placeholder="e.g. sample taken from bathroom"
                 />
               </div>
 
@@ -646,14 +816,14 @@ export default function CalendarPage() {
                   disabled={saving}
                   className="flex-1 bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {saving ? 'Tallennetaan...' : 'Tallenna'}
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg text-sm font-medium hover:bg-gray-200"
                 >
-                  Peruuta
+                  Cancel
                 </button>
               </div>
             </form>

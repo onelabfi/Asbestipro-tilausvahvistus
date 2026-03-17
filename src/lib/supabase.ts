@@ -24,7 +24,8 @@ export type Order = {
   palvelu: string;
   remontti: string;
   aika: string;
-  hinta: number;
+  hinta: number;           // agreed price (sovittu_hinta)
+  maksettu_summa: number;  // amount paid so far
   nimi: string;
   email: string;
   puhelin: string;
@@ -32,6 +33,10 @@ export type Order = {
   payment_method: string;
   stripe_session_id: string;
   notes: string;
+  customer_type: string;   // 'company' | 'private'
+  y_tunnus: string;        // business ID
+  billing_address: string;
+  terms_accepted: boolean;
 };
 
 export type UserRole = 'admin' | 'field_user';

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { calculatePaymentStatus, hasRequiredOrderFields } from '@/lib/payment';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -34,22 +35,33 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const orderData = {
+    const hinta = parseFloat(body.hinta) || 0;
+    const maksettu = parseFloat(body.maksettu_summa) || 0;
+
+    const orderFields = {
       nimi: body.nimi || '',
       kaupunki: body.kaupunki || '',
       kaupunginosa: body.kaupunginosa || '',
       osoite: body.osoite || '',
-      postinumero: body.postinumero || '',
       puhelin: body.puhelin || '',
+      aika: body.aika,
+      hinta,
+    };
+
+    const hasRequired = hasRequiredOrderFields(orderFields);
+    const paymentStatus = calculatePaymentStatus(hinta, maksettu, hasRequired);
+
+    const orderData = {
+      ...orderFields,
+      postinumero: body.postinumero || '',
       email: body.email || '',
       palvelu: body.palvelu || 'Asbesti- ja haitta-ainekartoitus',
       remontti: body.remontti || '',
-      aika: body.aika,
-      hinta: body.hinta || 0,
       latitude: body.latitude || 0,
       longitude: body.longitude || 0,
-      payment_status: 'manual',
-      payment_method: 'manual',
+      maksettu_summa: maksettu,
+      payment_status: paymentStatus,
+      payment_method: body.payment_method || 'manual',
       notes: body.notes || '',
     };
 

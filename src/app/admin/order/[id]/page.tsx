@@ -6,10 +6,11 @@ import type { Order } from '@/lib/supabase';
 
 function getStatusLabel(status: string) {
   switch (status) {
-    case 'paid': return 'Maksettu';
-    case 'manual': return 'Manuaalinen';
-    case 'unpaid':
-    case 'failed': return 'Maksamaton';
+    case 'paid': return 'Paid';
+    case 'unpaid': return 'Invoiced';
+    case 'partial': return 'Partial';
+    case 'incomplete':
+    case 'failed': return 'Incomplete';
     default: return status;
   }
 }
@@ -17,8 +18,9 @@ function getStatusLabel(status: string) {
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'paid': return 'bg-green-100 text-green-700';
-    case 'manual': return 'bg-yellow-100 text-yellow-700';
-    case 'unpaid':
+    case 'unpaid': return 'bg-blue-100 text-blue-700';
+    case 'partial':
+    case 'incomplete':
     case 'failed': return 'bg-red-100 text-red-700';
     default: return 'bg-gray-100 text-gray-700';
   }
@@ -64,7 +66,7 @@ export default function OrderDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Ladataan...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
@@ -72,13 +74,13 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Tilausta ei löytynyt.</p>
+        <p className="text-gray-500">Order not found.</p>
       </div>
     );
   }
 
   const aikaDate = new Date(order.aika);
-  const aikaStr = aikaDate.toLocaleDateString('fi-FI', {
+  const aikaStr = aikaDate.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -87,13 +89,15 @@ export default function OrderDetailPage() {
     minute: '2-digit',
   });
 
+  const remaining = (order.hinta || 0) - (order.maksettu_summa || 0);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b px-4 py-3 flex items-center gap-4">
         <button onClick={() => window.history.back()} className="text-blue-600 text-sm font-medium">
-          &larr; Takaisin
+          &larr; Back
         </button>
-        <h1 className="text-lg font-bold">Tilaus</h1>
+        <h1 className="text-lg font-bold">Order</h1>
       </div>
 
       <div className="max-w-lg mx-auto p-4">
@@ -109,11 +113,11 @@ export default function OrderDetailPage() {
 
           <div className="grid gap-4 text-sm">
             <div>
-              <span className="text-gray-500">Asiakas</span>
+              <span className="text-gray-500">Customer</span>
               <p className="font-medium text-base">{order.nimi || '-'}</p>
             </div>
             <div>
-              <span className="text-gray-500">Puhelin</span>
+              <span className="text-gray-500">Phone</span>
               <p className="font-medium">
                 {order.puhelin ? (
                   <a href={`tel:${order.puhelin}`} className="text-blue-600">{order.puhelin}</a>
@@ -121,7 +125,7 @@ export default function OrderDetailPage() {
               </p>
             </div>
             <div>
-              <span className="text-gray-500">Sähköposti</span>
+              <span className="text-gray-500">Email</span>
               <p className="font-medium">
                 {order.email ? (
                   <a href={`mailto:${order.email}`} className="text-blue-600">{order.email}</a>
@@ -129,24 +133,55 @@ export default function OrderDetailPage() {
               </p>
             </div>
             <div>
-              <span className="text-gray-500">Osoite</span>
+              <span className="text-gray-500">Address</span>
               <p className="font-medium">{order.osoite || '-'}</p>
               <p className="text-gray-600">
                 {order.kaupunginosa}{order.kaupunki ? `, ${order.kaupunki}` : ''}
               </p>
             </div>
             <div>
-              <span className="text-gray-500">Aika</span>
+              <span className="text-gray-500">Time</span>
               <p className="font-medium">{aikaStr}</p>
             </div>
             <div>
-              <span className="text-gray-500">Remontti</span>
+              <span className="text-gray-500">Renovation</span>
               <p className="font-medium">{order.remontti || '-'}</p>
             </div>
-            <div>
-              <span className="text-gray-500">Hinta</span>
-              <p className="font-medium text-lg">{order.hinta} €</p>
+
+            {/* Payment details */}
+            <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Agreed Price</span>
+                <span className="font-medium">{(order.hinta || 0).toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Paid</span>
+                <span className="font-medium">{(order.maksettu_summa || 0).toFixed(2)} €</span>
+              </div>
+              {remaining > 0 && (
+                <div className="flex justify-between border-t pt-1">
+                  <span className="text-red-600 font-medium">Remaining</span>
+                  <span className="text-red-600 font-bold">{remaining.toFixed(2)} €</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs text-gray-400 pt-1">
+                <span>Method</span>
+                <span className="capitalize">{order.payment_method || '-'}</span>
+              </div>
             </div>
+
+            {order.customer_type === 'company' && order.y_tunnus && (
+              <div>
+                <span className="text-gray-500">Business ID (Y-tunnus)</span>
+                <p className="font-medium">{order.y_tunnus}</p>
+              </div>
+            )}
+            {order.billing_address && (
+              <div>
+                <span className="text-gray-500">Billing Address</span>
+                <p className="font-medium">{order.billing_address}</p>
+              </div>
+            )}
           </div>
 
           <hr />
@@ -154,13 +189,13 @@ export default function OrderDetailPage() {
           {/* Notes */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-500 font-medium">Muistiinpanot</span>
+              <span className="text-sm text-gray-500 font-medium">Notes</span>
               {!editingNotes && (
                 <button
                   onClick={() => setEditingNotes(true)}
                   className="text-blue-600 text-xs hover:underline"
                 >
-                  Muokkaa
+                  Edit
                 </button>
               )}
             </div>
@@ -170,14 +205,14 @@ export default function OrderDetailPage() {
                   value={notesValue}
                   onChange={(e) => setNotesValue(e.target.value)}
                   className="w-full border rounded-lg p-3 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Lisää muistiinpano..."
+                  placeholder="Add a note..."
                 />
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={handleSaveNotes}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-blue-700"
                   >
-                    Tallenna
+                    Save
                   </button>
                   <button
                     onClick={() => {
@@ -186,13 +221,13 @@ export default function OrderDetailPage() {
                     }}
                     className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-xs font-medium hover:bg-gray-200"
                   >
-                    Peruuta
+                    Cancel
                   </button>
                 </div>
               </div>
             ) : (
               <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 min-h-[40px]">
-                {order.notes || <span className="text-gray-400 italic">Ei muistiinpanoja</span>}
+                {order.notes || <span className="text-gray-400 italic">No notes</span>}
               </p>
             )}
           </div>
@@ -207,7 +242,7 @@ export default function OrderDetailPage() {
                 rel="noopener noreferrer"
                 className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700"
               >
-                Avaa Google Maps
+                Open Google Maps
               </a>
             ) : order.osoite ? (
               <a
@@ -216,7 +251,7 @@ export default function OrderDetailPage() {
                 rel="noopener noreferrer"
                 className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-blue-700"
               >
-                Avaa Google Maps
+                Open Google Maps
               </a>
             ) : null}
             {order.puhelin && (
@@ -224,7 +259,7 @@ export default function OrderDetailPage() {
                 href={`tel:${order.puhelin}`}
                 className="block w-full text-center bg-gray-800 text-white py-3 rounded-lg text-sm font-medium hover:bg-gray-900"
               >
-                Soita asiakkaalle
+                Call Customer
               </a>
             )}
           </div>

@@ -8,13 +8,13 @@ import type { UserRole } from '@/lib/supabase';
 
 const ADMIN_NAV = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
-  { href: '/admin/calendar', label: 'Kalenteri', icon: '📅' },
-  { href: '/admin/map', label: 'Kartta', icon: '🗺️' },
-  { href: '/admin/orders', label: 'Tilaukset', icon: '📋' },
+  { href: '/admin/calendar', label: 'Calendar', icon: '📅' },
+  { href: '/admin/map', label: 'Map', icon: '🗺️' },
+  { href: '/admin/orders', label: 'Orders', icon: '📋' },
 ];
 
 const FIELD_USER_NAV = [
-  { href: '/admin/calendar', label: 'Kalenteri', icon: '📅' },
+  { href: '/admin/calendar', label: 'Calendar', icon: '📅' },
 ];
 
 // Pages accessible by field_user
@@ -96,7 +96,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500">Ladataan...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
@@ -138,7 +138,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div className="px-5 py-5 border-b border-gray-700">
           <h1 className="text-base font-bold">
-            {userRole === 'admin' ? 'Admin' : 'Kartoittaja'}
+            {userRole === 'admin' ? 'Admin' : 'Field Worker'}
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">Suomen Asbestipro</p>
         </div>
@@ -170,7 +170,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex items-center gap-3 text-sm text-gray-300 hover:text-white w-full px-1 py-2"
           >
             <span>🚪</span>
-            Kirjaudu ulos
+            Logout
           </button>
         </div>
       </aside>

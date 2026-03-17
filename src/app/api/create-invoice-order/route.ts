@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { getResend } from '@/lib/resend';
+import { calculatePaymentStatus } from '@/lib/payment';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { kaupunki, kaupunginosa, osoite, postinumero, latitude, longitude, palvelu, aika, hinta, remontti, nimi, email, puhelin } = body;
+    const { kaupunki, kaupunginosa, osoite, postinumero, latitude, longitude, palvelu, aika, hinta, remontti, nimi, email, puhelin, customer_type, y_tunnus, billing_address, terms_accepted } = body;
 
     if (!kaupunki || !kaupunginosa || !osoite || !aika || !hinta || !nimi || !email || !puhelin) {
       return NextResponse.json({ error: 'Puuttuvia tietoja.' }, { status: 400 });
@@ -16,6 +17,8 @@ export async function POST(req: NextRequest) {
     if (isNaN(price) || price <= 0) {
       return NextResponse.json({ error: 'Virheellinen hinta.' }, { status: 400 });
     }
+
+    const paymentStatus = calculatePaymentStatus(price, 0, true);
 
     const orderData = {
       kaupunki: kaupunki || '',
@@ -28,12 +31,17 @@ export async function POST(req: NextRequest) {
       remontti: remontti || '',
       aika,
       hinta: price,
+      maksettu_summa: 0,
       nimi,
       email,
       puhelin,
-      payment_status: 'unpaid',
+      payment_status: paymentStatus,
       payment_method: 'invoice',
       notes: '',
+      customer_type: customer_type || 'private',
+      y_tunnus: y_tunnus || '',
+      billing_address: billing_address || '',
+      terms_accepted: terms_accepted || false,
     };
 
     // Save to database
@@ -68,6 +76,7 @@ export async function POST(req: NextRequest) {
             <p><strong>Osoite:</strong><br/>${osoite}<br/>${kaupunginosa}, ${kaupunki}</p>
             <p><strong>Remontti:</strong><br/>${remontti || '-'}</p>
             <p><strong>Hinta:</strong><br/>${price.toFixed(2)} € (sis. laskutuslisä 4,90 €)</p>
+            ${customer_type === 'company' && y_tunnus ? `<p><strong>Y-tunnus:</strong><br/>${y_tunnus}</p>` : ''}
             <p style="color: #666; font-size: 13px;">Maksu: Lasku lähetetään erikseen.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
             <p style="color: #999; font-size: 12px;">Suomen Asbestipro Oy</p>
