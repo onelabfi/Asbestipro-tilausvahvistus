@@ -300,7 +300,7 @@ export default function OrderForm() {
           disabled={!!loading}
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-4 px-6 rounded-lg text-lg transition-colors"
         >
-          {loading === 'stripe' ? 'Ladataan...' : 'Maksa nyt (kortilla)'}
+          {loading === 'stripe' ? 'Ladataan...' : 'Maksa nyt (kortti/mobile pay)'}
         </button>
         <button
           type="button"
