@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     const session = await getStripe().checkout.sessions.create({
-      payment_method_types: ['card', 'mobilepay'],
+      payment_method_types: ['card', 'mobilepay' as const] as any,
       line_items: [
         {
           price_data: {
