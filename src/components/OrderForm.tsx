@@ -302,13 +302,16 @@ export default function OrderForm() {
         >
           {loading === 'stripe' ? 'Ladataan...' : 'Maksa nyt (kortti/mobile pay)'}
         </button>
+        <p className="text-sm text-gray-500 text-center mt-2">
+          Voit maksaa laskulla (+4,90 €) tai paikan päällä kortilla
+        </p>
         <button
           type="button"
           onClick={handleInvoice}
           disabled={!!loading}
           className="w-full bg-gray-800 hover:bg-gray-900 disabled:bg-gray-500 text-white font-semibold py-4 px-6 rounded-lg text-base transition-colors"
         >
-          {loading === 'invoice' ? 'Ladataan...' : 'Maksa myöhemmin laskulla (+4,90 €)'}
+          {loading === 'invoice' ? 'Ladataan...' : 'Maksa myöhemmin'}
         </button>
         <p className="text-xs text-gray-400 text-center">
           Laskutuslisä 4,90 € lisätään hintaan valittaessa laskumaksu.
