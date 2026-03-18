@@ -7,6 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { Order } from '@/lib/supabase';
+import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -46,7 +47,10 @@ type ManualEventForm = {
   time: string;
   kaupunginosa: string;
   osoite: string;
+  postinumero: string;
   kaupunki: string;
+  latitude: number;
+  longitude: number;
   nimi: string;
   puhelin: string;
   email: string;
@@ -60,7 +64,10 @@ const emptyForm: ManualEventForm = {
   time: '09:00',
   kaupunginosa: '',
   osoite: '',
+  postinumero: '',
   kaupunki: '',
+  latitude: 0,
+  longitude: 0,
   nimi: '',
   puhelin: '',
   email: '',
@@ -193,7 +200,7 @@ export default function CalendarPage() {
     const aika = `${form.date}T${form.time}:00`;
 
     try {
-      const { date: _d, time: _t, ...rest } = form;
+      const { date: _d, time: _t, latitude, longitude, postinumero, ...rest } = form;
       void _d; void _t;
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -201,6 +208,9 @@ export default function CalendarPage() {
         body: JSON.stringify({
           ...rest,
           aika,
+          postinumero,
+          latitude,
+          longitude,
           hinta: parseFloat(form.hinta) || 0,
           palvelu: 'Asbesti- ja haitta-ainekartoitus',
         }),
@@ -721,13 +731,19 @@ export default function CalendarPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Address *
                 </label>
-                <input
-                  type="text"
+                <AddressAutocomplete
                   value={form.osoite}
-                  onChange={(e) => setForm({ ...form, osoite: e.target.value })}
-                  required
-                  placeholder="e.g. Mannerheimintie 1"
-                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(val) => setForm({ ...form, osoite: val })}
+                  onSelect={(place) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      osoite: place.osoite,
+                      postinumero: place.postinumero,
+                      kaupunki: place.kaupunki || prev.kaupunki,
+                      latitude: place.latitude,
+                      longitude: place.longitude,
+                    }));
+                  }}
                 />
               </div>
 
