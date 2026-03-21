@@ -767,6 +767,16 @@ export default function CalendarPage() {
                   Call Customer
                 </a>
               )}
+              {selected.puhelin && (
+                <a
+                  href={`sms:${selected.puhelin}?body=${encodeURIComponent(
+                    'Olkaa hyvä ja täyttäkää oheinen tilausvahvistus niin tilauksenne tallentuu kalenteriimme: https://asbestipro-tilausvahvistus.vercel.app/'
+                  )}`}
+                  className="block w-full text-center bg-emerald-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-emerald-700"
+                >
+                  📱 Send Tilausvahvistus SMS
+                </a>
+              )}
               {(selected.latitude && selected.longitude) ? (
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`}
