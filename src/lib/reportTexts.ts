@@ -88,8 +88,8 @@ export function generateYleista(order: Order, samples: Sample[]): string[] {
   const asbestosSamples = samples.filter((s) => s.asbestos_detected === true);
   const hasAsbestos = asbestosSamples.length > 0;
 
-  // Sentence 3: For purettava with no asbestos
-  if (order.kohde_tyyppi === 'purettava' && !hasAsbestos) {
+  // Sentence 3: For purettava kohde — always include (refers to building structure)
+  if (order.kohde_tyyppi === 'purettava') {
     paragraphs.push('Kohteen rakenteissa ei havaittu asbestia tai muita haitta-aineita.');
   }
 
