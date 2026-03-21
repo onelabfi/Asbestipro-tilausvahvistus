@@ -11,6 +11,7 @@ const ADMIN_NAV = [
   { href: '/admin/calendar', label: 'Calendar', icon: '📅' },
   { href: '/admin/map', label: 'Map', icon: '🗺️' },
   { href: '/admin/orders', label: 'Orders', icon: '📋' },
+  { href: '/admin/reports', label: 'Raportit', icon: '📄' },
 ];
 
 const FIELD_USER_NAV = [
