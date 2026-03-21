@@ -39,6 +39,18 @@ export type Order = {
   terms_accepted: boolean;
 };
 
+export type Sample = {
+  id: string;
+  order_id: string;
+  location: string;
+  photos: string[];
+  notes: string | null;
+  asbestos_detected: boolean | null;
+  asbestos_type: string | null;
+  lab_notes: string | null;
+  created_at: string;
+};
+
 export type UserRole = 'admin' | 'field_user';
 
 /**

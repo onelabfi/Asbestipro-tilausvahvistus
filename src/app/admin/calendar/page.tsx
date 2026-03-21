@@ -9,6 +9,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { Order } from '@/lib/supabase';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { DistrictAutocomplete } from '@/components/DistrictAutocomplete';
+import { SurveyView } from '@/components/SurveyView';
 
 // ── Week helpers ──────────────────────────────────────────────────────
 function getISOWeek(d: Date): number {
@@ -140,6 +141,8 @@ export default function CalendarPage() {
   const [addingPayment, setAddingPayment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [sampleCounts, setSampleCounts] = useState<Record<string, number>>({});
   const calendarRef = useRef<FullCalendar>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
   const swipeInnerRef = useRef<HTMLDivElement>(null);
@@ -525,6 +528,11 @@ export default function CalendarPage() {
               setEditingNotes(false);
               setShowAddPayment(false);
               setShowDeleteConfirm(false);
+              // Fetch sample count for this order
+              fetch(`/api/orders/${order.id}/samples`)
+                .then(r => r.ok ? r.json() : [])
+                .then(data => setSampleCounts(prev => ({ ...prev, [order.id]: Array.isArray(data) ? data.length : 0 })))
+                .catch(() => {});
             }}
             height="auto"
             slotMinTime="06:00:00"
@@ -685,6 +693,26 @@ export default function CalendarPage() {
               </div>
             </div>
 
+            {/* Survey section */}
+            <div className="mt-4 bg-blue-50 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-gray-900">📋 Kartoitus</span>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {(sampleCounts[selected.id] || 0) === 0
+                      ? 'Ei näytteitä vielä'
+                      : `${sampleCounts[selected.id]} näytettä`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSurvey(true)}
+                  className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                >
+                  {(sampleCounts[selected.id] || 0) === 0 ? 'Aloita kartoitus' : 'Jatka kartoitusta'}
+                </button>
+              </div>
+            </div>
+
             {/* Add payment inline form */}
             {showAddPayment && (
               <div className="mt-4 bg-gray-50 rounded-lg p-3">
@@ -796,6 +824,17 @@ export default function CalendarPage() {
                   Open Google Maps
                 </a>
               ) : null}
+              {/* Report button */}
+              {(sampleCounts[selected.id] || 0) > 0 && (
+                <a
+                  href={`/admin/order/${selected.id}/report`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center bg-purple-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-purple-700"
+                >
+                  📄 Luo raportti
+                </a>
+              )}
               {/* Delete button */}
               {!showDeleteConfirm && (
                 <button
@@ -808,6 +847,21 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Survey full-screen view */}
+      {showSurvey && selected && (
+        <SurveyView
+          order={selected}
+          onClose={() => {
+            setShowSurvey(false);
+            // Refresh sample count
+            fetch(`/api/orders/${selected.id}/samples`)
+              .then(r => r.ok ? r.json() : [])
+              .then(data => setSampleCounts(prev => ({ ...prev, [selected.id]: Array.isArray(data) ? data.length : 0 })))
+              .catch(() => {});
+          }}
+        />
       )}
 
       {/* Add Manual Event Modal */}
