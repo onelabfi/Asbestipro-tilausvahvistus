@@ -1,6 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Script from 'next/script';
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
+      reset: (widgetId: string) => void;
+    };
+  }
+}
 
 type OrderData = {
   kaupunki: string;
@@ -18,6 +28,8 @@ type OrderData = {
   puhelin: string;
 };
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export default function InvoiceConfirmationPage() {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [customerType, setCustomerType] = useState<'private' | 'company'>('private');
@@ -30,6 +42,12 @@ export default function InvoiceConfirmationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
+
+  // Turnstile
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileWidgetId = useRef<string | null>(null);
+  const turnstileReady = useRef(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('invoice_order_data');
@@ -46,6 +64,22 @@ export default function InvoiceConfirmationPage() {
     } else {
       window.location.href = '/';
     }
+  }, []);
+
+  const initTurnstile = useCallback(() => {
+    if (!TURNSTILE_SITE_KEY || !window.turnstile || turnstileReady.current) return;
+    turnstileReady.current = true;
+
+    const container = document.getElementById('turnstile-widget');
+    if (!container) return;
+
+    turnstileWidgetId.current = window.turnstile.render(container, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token: string) => setTurnstileToken(token),
+      'error-callback': () => setTurnstileToken(''),
+      'expired-callback': () => setTurnstileToken(''),
+      size: 'invisible',
+    });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,6 +123,9 @@ export default function InvoiceConfirmationPage() {
           y_tunnus: customerType === 'company' ? yTunnus : '',
           billing_address: billingAddress,
           terms_accepted: true,
+          // Spam protection fields
+          website: honeypot,
+          turnstile_token: turnstileToken,
         }),
       });
 
@@ -98,6 +135,11 @@ export default function InvoiceConfirmationPage() {
         setSubmitted(true);
       } else {
         setError(data.error || 'Virhe tilauksen luomisessa.');
+        // Reset Turnstile on error
+        if (turnstileWidgetId.current && window.turnstile) {
+          window.turnstile.reset(turnstileWidgetId.current);
+          setTurnstileToken('');
+        }
       }
     } catch {
       setError('Yhteysvirhe. Yritä uudelleen.');
@@ -139,6 +181,14 @@ export default function InvoiceConfirmationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
+      {/* Turnstile script */}
+      {TURNSTILE_SITE_KEY && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          onReady={initTurnstile}
+        />
+      )}
+
       <div className="max-w-lg mx-auto">
         <div className="bg-white rounded-xl shadow-sm border p-6 sm:p-8">
           <h1 className="text-xl font-bold text-gray-900 mb-1">Laskutustiedot</h1>
@@ -147,6 +197,18 @@ export default function InvoiceConfirmationPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Honeypot — hidden from real users, bots fill it */}
+            <input
+              type="text"
+              name="website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0 }}
+            />
+
             {/* Customer Type */}
             <div>
               <h2 className="text-sm font-semibold text-gray-900 mb-3">Asiakastyyppi</h2>
@@ -281,6 +343,9 @@ export default function InvoiceConfirmationPage() {
             {error && (
               <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
             )}
+
+            {/* Turnstile invisible widget */}
+            <div id="turnstile-widget" />
 
             <button
               type="submit"

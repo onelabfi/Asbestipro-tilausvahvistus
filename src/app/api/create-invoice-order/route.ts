@@ -3,12 +3,115 @@ import { getSupabase, findMatchingQuickNote } from '@/lib/supabase';
 import { getResend } from '@/lib/resend';
 import { calculatePaymentStatus } from '@/lib/payment';
 
+// --- Spam protection: in-memory rate limiters ---
+// Phone dedup: max 1 submission per phone per 10 minutes
+const phoneSubmissions = new Map<string, number>();
+// IP rate limit: max 5 submissions per IP per hour
+const ipSubmissions = new Map<string, number[]>();
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/[\s\-\(\)]/g, '');
+}
+
+function isPhoneDuplicate(phone: string): boolean {
+  const normalized = normalizePhone(phone);
+  const lastTime = phoneSubmissions.get(normalized);
+  if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
+    return true;
+  }
+  return false;
+}
+
+function recordPhoneSubmission(phone: string): void {
+  phoneSubmissions.set(normalizePhone(phone), Date.now());
+}
+
+function isIpRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const timestamps = (ipSubmissions.get(ip) || []).filter(t => t > oneHourAgo);
+  ipSubmissions.set(ip, timestamps);
+  return timestamps.length >= 5;
+}
+
+function recordIpSubmission(ip: string): void {
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const timestamps = (ipSubmissions.get(ip) || []).filter(t => t > oneHourAgo);
+  timestamps.push(now);
+  ipSubmissions.set(ip, timestamps);
+}
+
+async function verifyTurnstile(token: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true; // Skip in dev if not configured
+
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ secret, response: token }),
+    });
+    const data = await res.json();
+    return data.success === true;
+  } catch {
+    console.error('Turnstile verification failed');
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { kaupunki, kaupunginosa, osoite, postinumero, latitude, longitude, palvelu, aika, hinta, remontti, nimi, email, puhelin, customer_type, y_tunnus, billing_address, terms_accepted } = body;
+    // --- Protection 1: Honeypot ---
+    if (body.website) {
+      // Bot filled the hidden field — silently pretend success
+      return NextResponse.json({ success: true });
+    }
 
+    // --- Protection 2: IP rate limit ---
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('x-real-ip')
+      || 'unknown';
+
+    if (isIpRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Liian monta pyyntöä. Yritä myöhemmin.' },
+        { status: 429 }
+      );
+    }
+
+    // --- Protection 3: Phone dedup ---
+    const { kaupunki, kaupunginosa, osoite, postinumero, latitude, longitude, palvelu, aika, hinta, remontti, nimi, email, puhelin, customer_type, y_tunnus, billing_address, terms_accepted, turnstile_token } = body;
+
+    if (puhelin && isPhoneDuplicate(puhelin)) {
+      return NextResponse.json(
+        { error: 'Tilaus on jo lähetetty. Odota hetki.' },
+        { status: 429 }
+      );
+    }
+
+    // --- Protection 4: Turnstile verification ---
+    if (!turnstile_token) {
+      // Only enforce if Turnstile is configured
+      if (process.env.TURNSTILE_SECRET_KEY) {
+        return NextResponse.json(
+          { error: 'Vahvistus puuttuu. Yritä uudelleen.' },
+          { status: 403 }
+        );
+      }
+    } else {
+      const valid = await verifyTurnstile(turnstile_token);
+      if (!valid) {
+        return NextResponse.json(
+          { error: 'Vahvistus epäonnistui. Yritä uudelleen.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // --- Original validation ---
     if (!kaupunki || !kaupunginosa || !osoite || !aika || !hinta || !nimi || !email || !puhelin) {
       return NextResponse.json({ error: 'Puuttuvia tietoja.' }, { status: 400 });
     }
@@ -67,6 +170,10 @@ export async function POST(req: NextRequest) {
       console.error('DB error:', JSON.stringify(dbError));
       return NextResponse.json({ error: 'Tietokantavirhe.' }, { status: 500 });
     }
+
+    // Record successful submission for rate limiting
+    recordPhoneSubmission(puhelin);
+    recordIpSubmission(ip);
 
     // Send confirmation email
     try {
