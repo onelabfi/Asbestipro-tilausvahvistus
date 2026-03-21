@@ -124,8 +124,6 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
         {samples.length > 0 && (
           <a
             href={`/admin/order/${order.id}/report`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium"
           >
             Raportti
