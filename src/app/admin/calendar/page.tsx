@@ -8,6 +8,7 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { Order } from '@/lib/supabase';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import { DistrictAutocomplete } from '@/components/DistrictAutocomplete';
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -155,15 +156,22 @@ export default function CalendarPage() {
     fetchOrders();
   }, [fetchOrders]);
 
-  const events = orders.map((o) => ({
-    id: o.id,
-    title: `${o.kaupunginosa} - ${o.nimi || '?'}`,
-    start: o.aika,
-    end: new Date(new Date(o.aika).getTime() + 30 * 60 * 1000).toISOString(),
-    backgroundColor: getStatusColor(o.payment_status),
-    borderColor: 'transparent',
-    extendedProps: o,
-  }));
+  const events = orders.map((o) => {
+    const district = o.kaupunginosa || o.kaupunki || '';
+    const phone = o.puhelin || '';
+    const title = district
+      ? `${district}${phone ? ` 📞 ${phone}` : ''}`
+      : `⚠ No location${phone ? ` 📞 ${phone}` : ''}`;
+    return {
+      id: o.id,
+      title,
+      start: o.aika,
+      end: new Date(new Date(o.aika).getTime() + 30 * 60 * 1000).toISOString(),
+      backgroundColor: getStatusColor(o.payment_status),
+      borderColor: 'transparent',
+      extendedProps: o,
+    };
+  });
 
   // Drag & drop event move
   const handleEventDrop = async (info: { event: { id: string; start: Date | null }; revert: () => void }) => {
@@ -194,7 +202,7 @@ export default function CalendarPage() {
   // Save manual event
   const handleSaveManualEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.date || !form.time || !form.kaupunginosa || !form.osoite || !form.kaupunki || !form.nimi || !form.puhelin || !form.hinta) return;
+    if (!form.date || !form.time || !form.osoite || !form.nimi || !form.puhelin || !form.hinta) return;
     setSaving(true);
 
     const aika = `${form.date}T${form.time}:00`;
@@ -388,11 +396,21 @@ export default function CalendarPage() {
           slotMinTime="06:00:00"
           slotMaxTime="20:00:00"
           allDaySlot={false}
-          eventContent={(arg) => (
-            <div className="px-1 py-0.5 text-xs truncate">
-              <span className="font-medium">{arg.event.title}</span>
-            </div>
-          )}
+          eventContent={(arg) => {
+            const o = arg.event.extendedProps as Order;
+            const district = o.kaupunginosa || o.kaupunki || '';
+            const phone = o.puhelin || '';
+            return (
+              <div className="px-1 py-0.5 text-xs leading-tight overflow-hidden">
+                <div className="font-semibold truncate">
+                  {district || <span className="text-yellow-200">⚠ No location</span>}
+                </div>
+                {phone && (
+                  <div className="opacity-80 truncate">📞 {phone}</div>
+                )}
+              </div>
+            );
+          }}
         />
       </div>
 
@@ -408,7 +426,7 @@ export default function CalendarPage() {
           >
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-lg font-bold">{selected.kaupunginosa}</h2>
+                <h2 className="text-lg font-bold">{selected.kaupunginosa || selected.kaupunki || 'No location'}</h2>
                 <p className="text-sm text-gray-500">
                   {new Date(selected.aika).toLocaleDateString('en-GB', {
                     weekday: 'short',
@@ -701,26 +719,24 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District *
+                    District
                   </label>
-                  <input
-                    type="text"
+                  <DistrictAutocomplete
                     value={form.kaupunginosa}
-                    onChange={(e) => setForm({ ...form, kaupunginosa: e.target.value })}
-                    required
+                    city={form.kaupunki}
+                    onChange={(val) => setForm({ ...form, kaupunginosa: val })}
+                    onCityChange={(city) => setForm((prev) => ({ ...prev, kaupunki: city }))}
                     placeholder="e.g. Töölö"
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City *
+                    City
                   </label>
                   <input
                     type="text"
                     value={form.kaupunki}
                     onChange={(e) => setForm({ ...form, kaupunki: e.target.value })}
-                    required
                     placeholder="e.g. Helsinki"
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
