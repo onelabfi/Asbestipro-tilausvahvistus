@@ -42,10 +42,11 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (res.ok) {
-      await fetchSamples();
-      setShowForm(false);
+    if (!res.ok) {
+      throw new Error('Failed to create sample');
     }
+    await fetchSamples();
+    setShowForm(false);
   };
 
   const handleEditSample = async (data: { location: string; notes: string }) => {
@@ -55,10 +56,11 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (res.ok) {
-      await fetchSamples();
-      setEditingSample(null);
+    if (!res.ok) {
+      throw new Error('Failed to update sample');
     }
+    await fetchSamples();
+    setEditingSample(null);
   };
 
   const handleDeleteSample = async (sampleId: string) => {
@@ -81,9 +83,11 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (res.ok) {
-      await fetchSamples();
-      setLabSample(null);
+    if (!res.ok) {
+      throw new Error('Failed to save lab results');
+    }
+    await fetchSamples();
+    setLabSample(null);
     }
   };
 

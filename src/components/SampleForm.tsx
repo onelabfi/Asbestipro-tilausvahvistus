@@ -72,6 +72,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
       await onSave({ location: location.trim(), notes: notes.trim() });
     } catch {
       setError('Tallentaminen epäonnistui.');
+    } finally {
       setSaving(false);
     }
   };
