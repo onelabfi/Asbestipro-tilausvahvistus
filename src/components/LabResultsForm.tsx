@@ -18,6 +18,7 @@ interface LabResultsFormProps {
     asbestos_detected: boolean | null;
     asbestos_type: string | null;
     lab_notes: string | null;
+    polyavyys: number | null;
   }) => Promise<void>;
   onCancel: () => void;
 }
@@ -26,6 +27,7 @@ export function LabResultsForm({ sample, onSave, onCancel }: LabResultsFormProps
   const [detected, setDetected] = useState<boolean | null>(sample.asbestos_detected);
   const [type, setType] = useState(sample.asbestos_type || '');
   const [labNotes, setLabNotes] = useState(sample.lab_notes || '');
+  const [polyavyys, setPolyavyys] = useState<number | null>(sample.polyavyys ?? null);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -35,6 +37,7 @@ export function LabResultsForm({ sample, onSave, onCancel }: LabResultsFormProps
         asbestos_detected: detected,
         asbestos_type: detected === true ? type || null : null,
         lab_notes: labNotes.trim() || null,
+        polyavyys: detected === true ? polyavyys : null,
       });
     } finally {
       setSaving(false);
@@ -83,19 +86,43 @@ export function LabResultsForm({ sample, onSave, onCancel }: LabResultsFormProps
 
       {/* Asbestos type (only when detected) */}
       {detected === true && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Asbestityyppi</label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
-          >
-            <option value="">Valitse tyyppi...</option>
-            {ASBESTOS_TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Asbestityyppi</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+            >
+              <option value="">Valitse tyyppi...</option>
+              {ASBESTOS_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Pölyävyys 1-5 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Pölyävyys (1-5)</label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPolyavyys(polyavyys === n ? null : n)}
+                  className={`flex-1 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                    polyavyys === n
+                      ? 'bg-red-600 border-red-600 text-white'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-1">1 = vähäinen, 5 = erittäin pölyävä</p>
+          </div>
+        </>
       )}
 
       {/* Lab notes */}

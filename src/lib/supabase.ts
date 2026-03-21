@@ -37,6 +37,9 @@ export type Order = {
   y_tunnus: string;        // business ID
   billing_address: string;
   terms_accepted: boolean;
+  kohde_tyyppi: 'pintaremontti' | 'purettava' | null;
+  katto_materiaali: 'pelti' | 'huopa' | 'tiili' | null;
+  runko_materiaali: 'puu' | 'tiili' | 'betoni' | null;
 };
 
 export type Sample = {
@@ -48,6 +51,8 @@ export type Sample = {
   asbestos_detected: boolean | null;
   asbestos_type: string | null;
   lab_notes: string | null;
+  area_m2: number | null;
+  polyavyys: number | null;
   created_at: string;
 };
 

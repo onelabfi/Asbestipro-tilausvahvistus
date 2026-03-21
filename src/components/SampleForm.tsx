@@ -87,7 +87,7 @@ function buildLocation(sijainti: string, kohta: string, materiaalit: string[]): 
 interface SampleFormProps {
   orderId: string;
   editingSample?: Sample | null;
-  onSave: (data: { location: string; notes: string }) => Promise<string | void>;
+  onSave: (data: { location: string; notes: string; area_m2: number | null }) => Promise<string | void>;
   onCancel: () => void;
   onPhotoAdded?: (sampleId: string, url: string) => void;
 }
@@ -98,6 +98,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
   const [kohta, setKohta] = useState(parsed.kohta);
   const [materiaalit, setMateriaalit] = useState<string[]>(parsed.materiaalit);
   const [notes, setNotes] = useState(editingSample?.notes || '');
+  const [areaM2, setAreaM2] = useState(editingSample?.area_m2?.toString() || '');
   const [photos, setPhotos] = useState<string[]>(editingSample?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -129,7 +130,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
       setSaving(true);
       setError('');
       try {
-        const result = await onSave({ location, notes: notes.trim() });
+        const result = await onSave({ location, notes: notes.trim(), area_m2: areaM2 ? parseFloat(areaM2) : null });
         if (typeof result === 'string') {
           sampleId = result;
           setSavedSampleId(result);
@@ -177,7 +178,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
         await fetch(`/api/orders/${orderId}/samples/${savedSampleId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location, notes: notes.trim() }),
+          body: JSON.stringify({ location, notes: notes.trim(), area_m2: areaM2 ? parseFloat(areaM2) : null }),
         });
       } catch {
         // Non-critical
@@ -189,7 +190,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
     setSaving(true);
     setError('');
     try {
-      await onSave({ location, notes: notes.trim() });
+      await onSave({ location, notes: notes.trim(), area_m2: areaM2 ? parseFloat(areaM2) : null });
     } catch {
       setError('Tallentaminen epäonnistui.');
     } finally {
@@ -272,6 +273,19 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
           📍 {getLocation()}
         </div>
       )}
+
+      {/* Area m2 */}
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-1">Pinta-ala (m²)</label>
+        <input
+          type="number"
+          inputMode="decimal"
+          value={areaM2}
+          onChange={(e) => setAreaM2(e.target.value)}
+          placeholder="esim. 12.5"
+          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+        />
+      </div>
 
       {/* Camera button */}
       <div>

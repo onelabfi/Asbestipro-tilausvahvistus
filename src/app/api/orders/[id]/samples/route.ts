@@ -36,6 +36,7 @@ export async function POST(
       order_id: params.id,
       location,
       notes: notes || null,
+      area_m2: body.area_m2 ?? null,
     })
     .select()
     .single();

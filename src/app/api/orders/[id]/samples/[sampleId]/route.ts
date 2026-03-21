@@ -7,7 +7,7 @@ export async function PATCH(
   { params }: { params: { id: string; sampleId: string } }
 ) {
   const body = await req.json();
-  const allowedFields = ['location', 'notes', 'photos', 'asbestos_detected', 'asbestos_type', 'lab_notes'];
+  const allowedFields = ['location', 'notes', 'photos', 'asbestos_detected', 'asbestos_type', 'lab_notes', 'area_m2', 'polyavyys'];
   const updates: Record<string, unknown> = {};
 
   for (const field of allowedFields) {

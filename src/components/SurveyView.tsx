@@ -18,6 +18,23 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
   const [labSample, setLabSample] = useState<Sample | null>(null);
 
+  // Kohde settings
+  const [kohdeTyyppi, setKohdeTyyppi] = useState<string | null>(order.kohde_tyyppi || null);
+  const [kattoMateriaali, setKattoMateriaali] = useState<string | null>(order.katto_materiaali || null);
+  const [runkoMateriaali, setRunkoMateriaali] = useState<string | null>(order.runko_materiaali || null);
+
+  const saveKohdeSettings = async (updates: Record<string, string | null>) => {
+    try {
+      await fetch(`/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+    } catch {
+      console.error('Failed to save kohde settings');
+    }
+  };
+
   const fetchSamples = useCallback(async () => {
     try {
       const res = await fetch(`/api/orders/${order.id}/samples`);
@@ -36,7 +53,7 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     fetchSamples();
   }, [fetchSamples]);
 
-  const handleAddSample = async (data: { location: string; notes: string }): Promise<string> => {
+  const handleAddSample = async (data: { location: string; notes: string; area_m2: number | null }): Promise<string> => {
     const res = await fetch(`/api/orders/${order.id}/samples`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,7 +68,7 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     return created.id;
   };
 
-  const handleEditSample = async (data: { location: string; notes: string }) => {
+  const handleEditSample = async (data: { location: string; notes: string; area_m2: number | null }) => {
     if (!editingSample) return;
     const res = await fetch(`/api/orders/${order.id}/samples/${editingSample.id}`, {
       method: 'PATCH',
@@ -86,6 +103,7 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     asbestos_detected: boolean | null;
     asbestos_type: string | null;
     lab_notes: string | null;
+    polyavyys: number | null;
   }) => {
     if (!labSample) return;
     const res = await fetch(`/api/orders/${order.id}/samples/${labSample.id}`, {
@@ -121,18 +139,91 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
             {resultsCount > 0 && ` (${resultsCount} tulosta)`}
           </p>
         </div>
-        {samples.length > 0 && (
-          <a
-            href={`/admin/order/${order.id}/report`}
-            className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium"
-          >
-            Raportti
-          </a>
-        )}
       </header>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {/* Kohde settings */}
+        <div className="bg-blue-50 rounded-xl p-3 space-y-2">
+          <p className="text-xs font-medium text-blue-800">Kohteen tiedot</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const v = kohdeTyyppi === 'pintaremontti' ? null : 'pintaremontti';
+                setKohdeTyyppi(v);
+                saveKohdeSettings({ kohde_tyyppi: v, katto_materiaali: null, runko_materiaali: null });
+                setKattoMateriaali(null);
+                setRunkoMateriaali(null);
+              }}
+              className={`flex-1 text-xs py-2 rounded-lg border font-medium transition-colors ${
+                kohdeTyyppi === 'pintaremontti' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700'
+              }`}
+            >
+              Pintaremontti
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const v = kohdeTyyppi === 'purettava' ? null : 'purettava';
+                setKohdeTyyppi(v);
+                saveKohdeSettings({ kohde_tyyppi: v });
+              }}
+              className={`flex-1 text-xs py-2 rounded-lg border font-medium transition-colors ${
+                kohdeTyyppi === 'purettava' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700'
+              }`}
+            >
+              Purettava kohde
+            </button>
+          </div>
+          {kohdeTyyppi === 'purettava' && (
+            <>
+              <div>
+                <p className="text-xs text-blue-700 mb-1">Katto</p>
+                <div className="flex gap-1.5">
+                  {['pelti', 'huopa', 'tiili'].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => {
+                        const val = kattoMateriaali === v ? null : v;
+                        setKattoMateriaali(val);
+                        saveKohdeSettings({ katto_materiaali: val });
+                      }}
+                      className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors capitalize ${
+                        kattoMateriaali === v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-blue-700 mb-1">Runko</p>
+                <div className="flex gap-1.5">
+                  {['puu', 'tiili', 'betoni'].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => {
+                        const val = runkoMateriaali === v ? null : v;
+                        setRunkoMateriaali(val);
+                        saveKohdeSettings({ runko_materiaali: val });
+                      }}
+                      className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors capitalize ${
+                        runkoMateriaali === v ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
         {loading ? (
           <div className="text-center py-12 text-gray-400">Ladataan...</div>
         ) : samples.length === 0 && !showForm ? (
