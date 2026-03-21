@@ -767,7 +767,7 @@ export default function CalendarPage() {
                   Call Customer
                 </a>
               )}
-              {selected.puhelin && (
+              {selected.puhelin && selected.payment_status !== 'paid' && (
                 <a
                   href={`sms:${selected.puhelin}?body=${encodeURIComponent(
                     'Olkaa hyvä ja täyttäkää oheinen tilausvahvistus niin tilauksenne tallentuu kalenteriimme: https://asbestipro-tilausvahvistus.vercel.app/'
