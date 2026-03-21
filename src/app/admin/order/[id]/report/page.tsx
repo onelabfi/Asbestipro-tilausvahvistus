@@ -23,7 +23,7 @@ function ReportHeader({ title, subtitle, dateStr }: { title: string; subtitle?: 
     <div className="report-header rounded-t-2xl print:rounded-none px-8 sm:px-10 py-6" style={{ backgroundColor: '#101921' }}>
       <div className="flex items-start justify-between">
         <div>
-          <img src="/logo.png" alt={COMPANY_NAME} className="h-12 mb-2 print:h-10" />
+          <img src="/logo.png" alt={COMPANY_NAME} className="h-32 mb-2 print:h-28" />
           <p className="text-[11px] text-white/50">
             {COMPANY_NAME}, Y-tunnus {COMPANY_YTUNNUS}
           </p>
