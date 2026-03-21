@@ -280,15 +280,23 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
         )}
       </div>
 
-      {/* Sticky bottom button */}
+      {/* Sticky bottom buttons */}
       {!showForm && !editingSample && !labSample && (
-        <div className="sticky bottom-0 bg-white border-t px-4 py-3">
+        <div className="sticky bottom-0 bg-white border-t px-4 py-3 flex gap-2">
           <button
             onClick={() => setShowForm(true)}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
+            className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
           >
             + Lisää näyte
           </button>
+          {samples.length > 0 && (
+            <button
+              onClick={onClose}
+              className="px-6 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm transition-colors"
+            >
+              Valmis
+            </button>
+          )}
         </div>
       )}
     </div>
