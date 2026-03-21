@@ -708,7 +708,7 @@ export default function CalendarPage() {
                   onClick={() => setShowSurvey(true)}
                   className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
                 >
-                  {(sampleCounts[selected.id] || 0) === 0 ? 'Aloita kartoitus' : 'Jatka kartoitusta'}
+                  {(sampleCounts[selected.id] || 0) === 0 ? 'Aloita kartoitus' : `Näytä (${sampleCounts[selected.id]})`}
                 </button>
               </div>
             </div>
