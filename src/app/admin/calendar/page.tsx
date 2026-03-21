@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -9,6 +9,36 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { Order } from '@/lib/supabase';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { DistrictAutocomplete } from '@/components/DistrictAutocomplete';
+
+// ── Week helpers ──────────────────────────────────────────────────────
+function getISOWeek(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function getWeekRange(d: Date): { start: Date; end: Date } {
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday start
+  const start = new Date(d);
+  start.setDate(diff);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start, end };
+}
+
+function formatWeekHeader(d: Date): string {
+  const wk = getISOWeek(d);
+  const { start, end } = getWeekRange(d);
+  const sameMonth = start.getMonth() === end.getMonth();
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  if (sameMonth) {
+    return `Week ${wk} — ${monthNames[start.getMonth()]} ${start.getDate()}–${end.getDate()}`;
+  }
+  return `Week ${wk} — ${monthNames[start.getMonth()]} ${start.getDate()} – ${monthNames[end.getMonth()]} ${end.getDate()}`;
+}
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -112,36 +142,121 @@ export default function CalendarPage() {
   const [deleting, setDeleting] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
+  const swipeInnerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // Swipe left/right to navigate prev/next
+  // Track current date for week header
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const weekHeader = useMemo(() => formatWeekHeader(currentDate), [currentDate]);
+
+  // Smooth drag-based swipe for mobile
   useEffect(() => {
     if (!isMobile) return;
     const el = calendarWrapRef.current;
-    if (!el) return;
+    const inner = swipeInnerRef.current;
+    if (!el || !inner) return;
 
     let startX = 0;
     let startY = 0;
+    let dragX = 0;
+    let isDragging = false;
+    let isHorizontal: boolean | null = null;
+    let animating = false;
+
+    const THRESHOLD = 0.3; // 30% of container width
+    const ANIM_MS = 280;
 
     const onTouchStart = (e: TouchEvent) => {
+      if (animating) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
+      dragX = 0;
+      isDragging = false;
+      isHorizontal = null;
+      inner.style.transition = 'none';
     };
 
-    const onTouchEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (animating) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+
+      // Lock direction on first meaningful move
+      if (isHorizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        isHorizontal = Math.abs(dx) > Math.abs(dy);
+      }
+
+      if (!isHorizontal) return;
+
+      // Prevent vertical scroll while swiping
+      e.preventDefault();
+      isDragging = true;
+      dragX = dx;
+
+      // Apply dampening at edges (rubber-band feel)
+      const dampened = dragX * 0.85;
+      inner.style.transform = `translateX(${dampened}px)`;
+    };
+
+    const onTouchEnd = () => {
+      if (animating || !isDragging) {
+        inner.style.transition = '';
+        inner.style.transform = '';
+        return;
+      }
+
+      const width = el.offsetWidth;
+      const ratio = Math.abs(dragX) / width;
       const api = calendarRef.current?.getApi();
-      if (!api) return;
-      if (dx > 0) api.prev();
-      else api.next();
+
+      if (ratio > THRESHOLD && api) {
+        // Slide out in the drag direction
+        animating = true;
+        const direction = dragX > 0 ? 1 : -1;
+        inner.style.transition = `transform ${ANIM_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+        inner.style.transform = `translateX(${direction * width}px)`;
+
+        setTimeout(() => {
+          // Navigate
+          if (direction > 0) api.prev();
+          else api.next();
+
+          // Slide in from opposite side
+          inner.style.transition = 'none';
+          inner.style.transform = `translateX(${-direction * width * 0.4}px)`;
+
+          // Force reflow
+          void inner.offsetHeight;
+
+          inner.style.transition = `transform ${ANIM_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+          inner.style.transform = 'translateX(0px)';
+
+          setTimeout(() => {
+            inner.style.transition = '';
+            inner.style.transform = '';
+            animating = false;
+          }, ANIM_MS);
+        }, ANIM_MS);
+      } else {
+        // Snap back
+        inner.style.transition = `transform ${200}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+        inner.style.transform = 'translateX(0px)';
+        setTimeout(() => {
+          inner.style.transition = '';
+          inner.style.transform = '';
+        }, 200);
+      }
+
+      isDragging = false;
+      isHorizontal = null;
     };
 
     el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd, { passive: true });
     return () => {
       el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
     };
   }, [isMobile]);
@@ -367,51 +482,66 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      <div ref={calendarWrapRef} className="bg-white rounded-xl border p-1 sm:p-4">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-          initialView={isMobile ? 'timeGridDay' : 'timeGridWeek'}
-          headerToolbar={isMobile
-            ? { left: 'prev,next today', center: 'title', right: '' }
-            : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
-          }
-          locale="en"
-          firstDay={1}
-          events={events}
-          editable={true}
-          droppable={true}
-          snapDuration="00:30:00"
-          slotDuration="00:30:00"
-          eventDrop={handleEventDrop}
-          eventClick={(info) => {
-            const order = info.event.extendedProps as Order;
-            setSelected(order);
-            setNotesValue(order.notes || '');
-            setEditingNotes(false);
-            setShowAddPayment(false);
-            setShowDeleteConfirm(false);
-          }}
-          height="auto"
-          slotMinTime="06:00:00"
-          slotMaxTime="20:00:00"
-          allDaySlot={false}
-          eventContent={(arg) => {
-            const o = arg.event.extendedProps as Order;
-            const district = o.kaupunginosa || o.kaupunki || '';
-            const phone = o.puhelin || '';
-            return (
-              <div className="px-1 py-0.5 text-xs leading-tight overflow-hidden">
-                <div className="font-semibold truncate">
-                  {district || <span className="text-yellow-200">⚠ No location</span>}
+      {/* Week context header (mobile) */}
+      {isMobile && (
+        <div className="mb-2 px-1">
+          <div className="text-sm font-semibold text-gray-700 tracking-tight">
+            {weekHeader}
+          </div>
+        </div>
+      )}
+
+      <div ref={calendarWrapRef} className="bg-white rounded-xl border p-1 sm:p-4 overflow-hidden">
+        <div ref={swipeInnerRef} className="will-change-transform">
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            initialView={isMobile ? 'timeGridDay' : 'timeGridWeek'}
+            headerToolbar={isMobile
+              ? { left: 'prev,next today', center: 'title', right: '' }
+              : { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' }
+            }
+            datesSet={(info) => {
+              // Track the current visible date for the week header
+              setCurrentDate(info.start);
+            }}
+            locale="en"
+            firstDay={1}
+            events={events}
+            editable={true}
+            droppable={true}
+            snapDuration="00:30:00"
+            slotDuration="00:30:00"
+            eventDrop={handleEventDrop}
+            eventClick={(info) => {
+              const order = info.event.extendedProps as Order;
+              setSelected(order);
+              setNotesValue(order.notes || '');
+              setEditingNotes(false);
+              setShowAddPayment(false);
+              setShowDeleteConfirm(false);
+            }}
+            height="auto"
+            slotMinTime="06:00:00"
+            slotMaxTime="20:00:00"
+            allDaySlot={false}
+            eventContent={(arg) => {
+              const o = arg.event.extendedProps as Order;
+              const district = o.kaupunginosa || o.kaupunki || '';
+              const phone = o.puhelin || '';
+              return (
+                <div className="px-1 py-0.5 text-xs leading-tight overflow-hidden">
+                  <div className="font-semibold truncate">
+                    {district || <span className="text-yellow-200">⚠ No location</span>}
+                  </div>
+                  {phone && (
+                    <div className="opacity-80 truncate">📞 {phone}</div>
+                  )}
                 </div>
-                {phone && (
-                  <div className="opacity-80 truncate">📞 {phone}</div>
-                )}
-              </div>
-            );
-          }}
-        />
+              );
+            }}
+          />
+        </div>
       </div>
 
       {/* Event Detail Modal */}
