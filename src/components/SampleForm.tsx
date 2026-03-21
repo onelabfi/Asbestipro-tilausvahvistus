@@ -4,20 +4,85 @@ import { useState, useRef } from 'react';
 import type { Sample } from '@/lib/supabase';
 import { uploadSamplePhoto } from '@/lib/photoUtils';
 
-const LOCATION_PRESETS = [
-  'Kylpyhuone seinä',
-  'Kylpyhuone lattia',
-  'Keittiö seinä',
-  'Keittiö lattia',
-  'Makuuhuone',
-  'Olohuone',
-  'Eteinen',
+const SIJAINTI_OPTIONS = [
+  'Keittiö',
+  'KPH',
   'WC',
+  'MH',
+  'OH',
+  'Eteinen',
   'Kellari',
   'Ullakko',
-  'Porraskäytävä',
+  'Katto',
+  'Sauna',
   'Julkisivu',
+  'Porraskäytävä',
 ];
+
+const KOHTA_OPTIONS = [
+  { value: 'S', label: 'Seinä' },
+  { value: 'L', label: 'Lattia' },
+];
+
+const MATERIAALI_OPTIONS = [
+  'Matto',
+  'Liima',
+  'Laatta',
+  'Laasti',
+  'Levy',
+  'Eriste',
+  'Putkieriste',
+  'Tasoite',
+];
+
+// Parse existing location string back into parts for editing
+function parseLocation(location: string): { sijainti: string; kohta: string; materiaalit: string[] } {
+  if (!location) return { sijainti: '', kohta: '', materiaalit: [] };
+
+  const parts = location.split(' ');
+  let sijainti = '';
+  let kohta = '';
+  const materiaalit: string[] = [];
+
+  // First token is sijainti
+  if (parts.length > 0) {
+    const first = parts[0];
+    if (SIJAINTI_OPTIONS.includes(first)) {
+      sijainti = first;
+    } else {
+      // Free text — put everything back
+      return { sijainti: location, kohta: '', materiaalit: [] };
+    }
+  }
+
+  // Second token might be S or L
+  if (parts.length > 1) {
+    const second = parts[1];
+    if (second === 'S' || second === 'L') {
+      kohta = second;
+      // Rest is materials (comma-separated after join)
+      const rest = parts.slice(2).join(' ');
+      if (rest) {
+        materiaalit.push(...rest.split(',').map(m => m.trim()).filter(Boolean));
+      }
+    } else {
+      // No kohta, rest is materials
+      const rest = parts.slice(1).join(' ');
+      if (rest) {
+        materiaalit.push(...rest.split(',').map(m => m.trim()).filter(Boolean));
+      }
+    }
+  }
+
+  return { sijainti, kohta, materiaalit };
+}
+
+function buildLocation(sijainti: string, kohta: string, materiaalit: string[]): string {
+  const parts = [sijainti];
+  if (kohta) parts.push(kohta);
+  if (materiaalit.length > 0) parts.push(materiaalit.join(', '));
+  return parts.filter(Boolean).join(' ');
+}
 
 interface SampleFormProps {
   orderId: string;
@@ -28,23 +93,33 @@ interface SampleFormProps {
 }
 
 export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAdded }: SampleFormProps) {
-  const [location, setLocation] = useState(editingSample?.location || '');
+  const parsed = parseLocation(editingSample?.location || '');
+  const [sijainti, setSijainti] = useState(parsed.sijainti);
+  const [kohta, setKohta] = useState(parsed.kohta);
+  const [materiaalit, setMateriaalit] = useState<string[]>(parsed.materiaalit);
   const [notes, setNotes] = useState(editingSample?.notes || '');
   const [photos, setPhotos] = useState<string[]>(editingSample?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // Track sampleId for new samples after auto-save
   const [savedSampleId, setSavedSampleId] = useState<string | null>(editingSample?.id || null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const toggleMateriaali = (mat: string) => {
+    setMateriaalit((prev) =>
+      prev.includes(mat) ? prev.filter((m) => m !== mat) : [...prev, mat]
+    );
+  };
+
+  const getLocation = () => buildLocation(sijainti, kohta, materiaalit);
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
 
     let sampleId = savedSampleId;
+    const location = getLocation();
 
-    // Auto-save the sample first if it hasn't been saved yet
     if (!sampleId) {
       if (!location.trim()) {
         setError('Valitse sijainti ensin.');
@@ -54,7 +129,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
       setSaving(true);
       setError('');
       try {
-        const result = await onSave({ location: location.trim(), notes: notes.trim() });
+        const result = await onSave({ location, notes: notes.trim() });
         if (typeof result === 'string') {
           sampleId = result;
           setSavedSampleId(result);
@@ -91,22 +166,21 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
   };
 
   const handleSubmit = async () => {
+    const location = getLocation();
     if (!location.trim()) {
-      setError('Sijainti on pakollinen.');
+      setError('Valitse sijainti.');
       return;
     }
 
-    // If already auto-saved (photo was taken first), just close
     if (savedSampleId && !editingSample) {
-      // Update with latest notes if changed
       try {
         await fetch(`/api/orders/${orderId}/samples/${savedSampleId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location: location.trim(), notes: notes.trim() }),
+          body: JSON.stringify({ location, notes: notes.trim() }),
         });
       } catch {
-        // Non-critical — sample already saved
+        // Non-critical
       }
       onCancel();
       return;
@@ -115,7 +189,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
     setSaving(true);
     setError('');
     try {
-      await onSave({ location: location.trim(), notes: notes.trim() });
+      await onSave({ location, notes: notes.trim() });
     } catch {
       setError('Tallentaminen epäonnistui.');
     } finally {
@@ -123,46 +197,84 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
     }
   };
 
+  const selectClass = (selected: boolean) =>
+    `text-xs px-3 py-2 rounded-lg border transition-colors font-medium ${
+      selected
+        ? 'bg-blue-600 border-blue-600 text-white'
+        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+    }`;
+
   return (
     <div className="bg-white rounded-xl border shadow-sm p-4 space-y-4">
       <h3 className="font-semibold text-gray-900">
         {editingSample ? 'Muokkaa näytettä' : savedSampleId ? 'Näyte tallennettu — lisää kuvia' : 'Uusi näyte'}
       </h3>
 
-      {/* Location input */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Sijainti *</label>
-        <input
-          type="text"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="esim. Kylpyhuone seinä"
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-        />
-        {/* Quick-select chips */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {LOCATION_PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => setLocation(preset)}
-              className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
-                location === preset
-                  ? 'bg-blue-100 border-blue-300 text-blue-700'
-                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {preset}
-            </button>
-          ))}
+      {/* Row 1: Sijainti, Kohta, Materiaali */}
+      <div className="space-y-3">
+        {/* Sijainti */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">Sijainti *</label>
+          <div className="flex flex-wrap gap-1.5">
+            {SIJAINTI_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setSijainti(opt)}
+                className={selectClass(sijainti === opt)}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Kohta */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">Kohta</label>
+          <div className="flex gap-2">
+            {KOHTA_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setKohta(kohta === opt.value ? '' : opt.value)}
+                className={`${selectClass(kohta === opt.value)} flex-1 py-2.5`}
+              >
+                {opt.value} — {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Materiaali (multi-select) */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">
+            Materiaali {materiaalit.length > 0 && <span className="text-blue-600">({materiaalit.length})</span>}
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {MATERIAALI_OPTIONS.map((mat) => (
+              <button
+                key={mat}
+                type="button"
+                onClick={() => toggleMateriaali(mat)}
+                className={selectClass(materiaalit.includes(mat))}
+              >
+                {materiaalit.includes(mat) && '✓ '}{mat}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Camera button — always visible */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Kuvat</label>
+      {/* Preview of composed location */}
+      {getLocation() && (
+        <div className="bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 font-medium">
+          📍 {getLocation()}
+        </div>
+      )}
 
-        {/* Photo previews */}
+      {/* Camera button */}
+      <div>
         {photos.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
             {photos.map((url, i) => (
@@ -197,7 +309,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
 
       {/* Notes */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Muistiinpanot</label>
+        <label className="block text-xs font-medium text-gray-500 mb-1">Muistiinpanot</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
