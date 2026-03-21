@@ -317,23 +317,28 @@ export default function CalendarPage() {
   // Save manual event
   const handleSaveManualEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.date || !form.time || !form.osoite || !form.nimi || !form.puhelin || !form.hinta) return;
+    if (!form.date || !form.time || !form.puhelin) return;
     setSaving(true);
 
     const aika = `${form.date}T${form.time}:00`;
 
     try {
-      const { date: _d, time: _t, latitude, longitude, postinumero, ...rest } = form;
-      void _d; void _t;
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...rest,
+          kaupunginosa: form.kaupunginosa || '',
+          kaupunki: form.kaupunki || '',
+          osoite: form.osoite || '',
+          postinumero: form.postinumero || '',
+          latitude: form.latitude || 0,
+          longitude: form.longitude || 0,
+          nimi: form.nimi || '',
+          puhelin: form.puhelin,
+          email: form.email || '',
+          remontti: form.remontti || '',
+          notes: form.notes || '',
           aika,
-          postinumero,
-          latitude,
-          longitude,
           hinta: parseFloat(form.hinta) || 0,
           palvelu: 'Asbesti- ja haitta-ainekartoitus',
         }),
@@ -805,8 +810,11 @@ export default function CalendarPage() {
             className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-lg w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-lg font-bold">Add Event</h2>
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <h2 className="text-lg font-bold">Quick Note</h2>
+                <p className="text-xs text-gray-400">Overwritten when tilausvahvistus arrives</p>
+              </div>
               <button
                 onClick={() => setShowAddForm(false)}
                 className="text-gray-400 hover:text-gray-600 text-2xl p-1"
@@ -816,6 +824,21 @@ export default function CalendarPage() {
             </div>
 
             <form onSubmit={handleSaveManualEvent} className="space-y-3">
+              {/* District — the main identifier */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  District / City
+                </label>
+                <DistrictAutocomplete
+                  value={form.kaupunginosa}
+                  city={form.kaupunki}
+                  onChange={(val) => setForm({ ...form, kaupunginosa: val })}
+                  onCityChange={(city) => setForm((prev) => ({ ...prev, kaupunki: city }))}
+                  placeholder="e.g. Vihti, Töölö, Espoo..."
+                />
+              </div>
+
+              {/* Date + Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -846,131 +869,97 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District
-                  </label>
-                  <DistrictAutocomplete
-                    value={form.kaupunginosa}
-                    city={form.kaupunki}
-                    onChange={(val) => setForm({ ...form, kaupunginosa: val })}
-                    onCityChange={(city) => setForm((prev) => ({ ...prev, kaupunki: city }))}
-                    placeholder="e.g. Töölö"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={form.kaupunki}
-                    onChange={(e) => setForm({ ...form, kaupunki: e.target.value })}
-                    placeholder="e.g. Helsinki"
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
+              {/* Phone — the key contact info */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address *
-                </label>
-                <AddressAutocomplete
-                  value={form.osoite}
-                  onChange={(val) => setForm({ ...form, osoite: val })}
-                  onSelect={(place) => {
-                    setForm((prev) => ({
-                      ...prev,
-                      osoite: place.osoite,
-                      postinumero: place.postinumero,
-                      kaupunki: place.kaupunki || prev.kaupunki,
-                      latitude: place.latitude,
-                      longitude: place.longitude,
-                    }));
-                  }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={form.nimi}
-                    onChange={(e) => setForm({ ...form, nimi: e.target.value })}
-                    required
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone *
-                  </label>
-                  <input
-                    type="tel"
-                    value={form.puhelin}
-                    onChange={(e) => setForm({ ...form, puhelin: e.target.value })}
-                    required
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
+                  Phone *
                 </label>
                 <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Renovation Description
-                </label>
-                <input
-                  type="text"
-                  value={form.remontti}
-                  onChange={(e) => setForm({ ...form, remontti: e.target.value })}
-                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price (€) *
-                </label>
-                <input
-                  type="number"
-                  value={form.hinta}
-                  onChange={(e) => setForm({ ...form, hinta: e.target.value })}
+                  type="tel"
+                  value={form.puhelin}
+                  onChange={(e) => setForm({ ...form, puhelin: e.target.value })}
                   required
-                  min="0"
-                  step="0.01"
+                  placeholder="040 123 4567"
                   className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g. sample taken from bathroom"
-                />
-              </div>
+              {/* Expandable: more details */}
+              <details className="group">
+                <summary className="text-xs text-blue-600 cursor-pointer hover:underline select-none">
+                  + More details (name, address, price...)
+                </summary>
+                <div className="mt-3 space-y-3 pt-3 border-t border-gray-100">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Customer Name
+                    </label>
+                    <input
+                      type="text"
+                      value={form.nimi}
+                      onChange={(e) => setForm({ ...form, nimi: e.target.value })}
+                      className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address
+                    </label>
+                    <AddressAutocomplete
+                      value={form.osoite}
+                      onChange={(val) => setForm({ ...form, osoite: val })}
+                      onSelect={(place) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          osoite: place.osoite,
+                          postinumero: place.postinumero,
+                          kaupunki: place.kaupunki || prev.kaupunki,
+                          latitude: place.latitude,
+                          longitude: place.longitude,
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Price (€)
+                      </label>
+                      <input
+                        type="number"
+                        value={form.hinta}
+                        onChange={(e) => setForm({ ...form, hinta: e.target.value })}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Notes
+                    </label>
+                    <textarea
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g. sample taken from bathroom"
+                    />
+                  </div>
+                </div>
+              </details>
 
               <div className="flex gap-2 pt-2">
                 <button
