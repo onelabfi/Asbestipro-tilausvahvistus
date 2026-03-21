@@ -23,6 +23,20 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
   const [kattoMateriaali, setKattoMateriaali] = useState<string | null>(order.katto_materiaali || null);
   const [runkoMateriaali, setRunkoMateriaali] = useState<string | null>(order.runko_materiaali || null);
 
+  // Fetch latest order data on mount to get current kohde settings
+  useEffect(() => {
+    fetch(`/api/orders/${order.id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setKohdeTyyppi(data.kohde_tyyppi || null);
+          setKattoMateriaali(data.katto_materiaali || null);
+          setRunkoMateriaali(data.runko_materiaali || null);
+        }
+      })
+      .catch(() => {});
+  }, [order.id]);
+
   const saveKohdeSettings = async (updates: Record<string, string | null>) => {
     try {
       await fetch(`/api/orders/${order.id}`, {
