@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, findMatchingQuickNote } from '@/lib/supabase';
 import { getResend } from '@/lib/resend';
 import { calculatePaymentStatus } from '@/lib/payment';
 
@@ -44,8 +44,25 @@ export async function POST(req: NextRequest) {
       terms_accepted: terms_accepted || false,
     };
 
-    // Save to database
-    const { error: dbError } = await getSupabase().from('orders').insert(orderData);
+    // Check for existing Quick Note with same phone + date — overwrite if found
+    const existingNote = await findMatchingQuickNote(puhelin, aika);
+
+    let dbError;
+    if (existingNote) {
+      // Preserve any notes from the Quick Note
+      if (existingNote.notes) {
+        orderData.notes = existingNote.notes;
+      }
+      const result = await getSupabase()
+        .from('orders')
+        .update(orderData)
+        .eq('id', existingNote.id);
+      dbError = result.error;
+    } else {
+      const result = await getSupabase().from('orders').insert(orderData);
+      dbError = result.error;
+    }
+
     if (dbError) {
       console.error('DB error:', JSON.stringify(dbError));
       return NextResponse.json({ error: 'Tietokantavirhe.' }, { status: 500 });

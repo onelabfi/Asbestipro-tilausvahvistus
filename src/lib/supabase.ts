@@ -40,3 +40,36 @@ export type Order = {
 };
 
 export type UserRole = 'admin' | 'field_user';
+
+/**
+ * Find a Quick Note (manual order) that matches by phone number + date (±1 day).
+ * Used by tilausvahvistus flows to overwrite placeholder events instead of creating duplicates.
+ */
+export async function findMatchingQuickNote(
+  puhelin: string,
+  aika: string
+): Promise<{ id: string; notes: string } | null> {
+  if (!puhelin) return null;
+
+  // Normalize phone: strip spaces, dashes, parens
+  const phone = puhelin.replace(/[\s\-()]/g, '');
+  const date = new Date(aika);
+  const dayBefore = new Date(date.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const dayAfter = new Date(date.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+  const { data } = await getSupabase()
+    .from('orders')
+    .select('id, puhelin, notes')
+    .eq('payment_method', 'manual')
+    .gte('aika', dayBefore)
+    .lte('aika', dayAfter);
+
+  if (!data || data.length === 0) return null;
+
+  // Match by normalized phone number
+  const match = data.find(
+    (o) => o.puhelin.replace(/[\s\-()]/g, '') === phone
+  );
+
+  return match ? { id: match.id, notes: match.notes || '' } : null;
+}

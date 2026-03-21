@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, findMatchingQuickNote } from '@/lib/supabase';
 import { getResend } from '@/lib/resend';
 import Stripe from 'stripe';
 
@@ -58,9 +58,23 @@ export async function POST(req: NextRequest) {
         stripe_session_id: session.id,
       };
 
-      // Save to database
-      const { error: dbError } = await getSupabase().from('orders').insert(orderData);
-      if (dbError) console.error('DB error:', JSON.stringify(dbError));
+      // Check for existing Quick Note with same phone + date — overwrite if found
+      const existingNote = await findMatchingQuickNote(m.puhelin || '', m.aika || '');
+
+      if (existingNote) {
+        // Preserve any notes from the Quick Note
+        if (existingNote.notes) {
+          (orderData as Record<string, unknown>).notes = existingNote.notes;
+        }
+        const { error: dbError } = await getSupabase()
+          .from('orders')
+          .update(orderData)
+          .eq('id', existingNote.id);
+        if (dbError) console.error('DB error:', JSON.stringify(dbError));
+      } else {
+        const { error: dbError } = await getSupabase().from('orders').insert(orderData);
+        if (dbError) console.error('DB error:', JSON.stringify(dbError));
+      }
 
       // Send confirmation email
       try {
