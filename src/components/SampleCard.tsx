@@ -1,19 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { Sample } from '@/lib/supabase';
+import { uploadSamplePhoto } from '@/lib/photoUtils';
 
 interface SampleCardProps {
   sample: Sample;
   index: number;
+  orderId: string;
   onEdit: (sample: Sample) => void;
   onDelete: (sampleId: string) => void;
   onLabResults: (sample: Sample) => void;
+  onPhotoAdded: (sampleId: string, url: string) => void;
 }
 
-export function SampleCard({ sample, index, onEdit, onDelete, onLabResults }: SampleCardProps) {
+export function SampleCard({ sample, index, orderId, onEdit, onDelete, onLabResults, onPhotoAdded }: SampleCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const url = await uploadSamplePhoto(orderId, sample.id, file);
+        onPhotoAdded(sample.id, url);
+      }
+    } catch (err) {
+      console.error('Photo upload failed:', err);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   const labBadge = () => {
     if (sample.asbestos_detected === true) {
@@ -51,6 +74,25 @@ export function SampleCard({ sample, index, onEdit, onDelete, onLabResults }: Sa
             ))}
           </div>
         )}
+
+        {/* Quick camera button */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhotoCapture}
+          className="hidden"
+          multiple
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="w-full py-2.5 mb-2 border-2 border-dashed border-gray-200 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm font-medium disabled:opacity-50"
+        >
+          {uploading ? 'Ladataan...' : `📷 ${sample.photos.length === 0 ? 'Ota kuva' : 'Lisää kuva'}`}
+        </button>
 
         {/* Notes */}
         {sample.notes && (

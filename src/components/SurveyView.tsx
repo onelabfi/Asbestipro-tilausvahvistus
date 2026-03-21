@@ -63,6 +63,14 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     setEditingSample(null);
   };
 
+  const handlePhotoAdded = (sampleId: string, url: string) => {
+    setSamples((prev) =>
+      prev.map((s) =>
+        s.id === sampleId ? { ...s, photos: [...s.photos, url] } : s
+      )
+    );
+  };
+
   const handleDeleteSample = async (sampleId: string) => {
     const res = await fetch(`/api/orders/${order.id}/samples/${sampleId}`, {
       method: 'DELETE',
@@ -88,7 +96,6 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     }
     await fetchSamples();
     setLabSample(null);
-    }
   };
 
   const resultsCount = samples.filter((s) => s.asbestos_detected !== null).length;
@@ -141,9 +148,11 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
                 key={sample.id}
                 sample={sample}
                 index={index}
+                orderId={order.id}
                 onEdit={(s) => { setEditingSample(s); setShowForm(false); setLabSample(null); }}
                 onDelete={handleDeleteSample}
                 onLabResults={(s) => { setLabSample(s); setShowForm(false); setEditingSample(null); }}
+                onPhotoAdded={handlePhotoAdded}
               />
             ))}
           </>
