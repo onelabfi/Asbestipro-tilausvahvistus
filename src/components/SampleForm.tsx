@@ -22,28 +22,56 @@ const LOCATION_PRESETS = [
 interface SampleFormProps {
   orderId: string;
   editingSample?: Sample | null;
-  onSave: (data: { location: string; notes: string }) => Promise<void>;
+  onSave: (data: { location: string; notes: string }) => Promise<string | void>;
   onCancel: () => void;
+  onPhotoAdded?: (sampleId: string, url: string) => void;
 }
 
-export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleFormProps) {
+export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAdded }: SampleFormProps) {
   const [location, setLocation] = useState(editingSample?.location || '');
   const [notes, setNotes] = useState(editingSample?.notes || '');
   const [photos, setPhotos] = useState<string[]>(editingSample?.photos || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Track sampleId for new samples after auto-save
+  const [savedSampleId, setSavedSampleId] = useState<string | null>(editingSample?.id || null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
 
-    const sampleId = editingSample?.id;
+    let sampleId = savedSampleId;
+
+    // Auto-save the sample first if it hasn't been saved yet
     if (!sampleId) {
-      // Will upload after save for new samples
-      setError('Tallenna näyte ensin, sitten voit lisätä kuvia.');
-      return;
+      if (!location.trim()) {
+        setError('Valitse sijainti ensin.');
+        if (fileRef.current) fileRef.current.value = '';
+        return;
+      }
+      setSaving(true);
+      setError('');
+      try {
+        const result = await onSave({ location: location.trim(), notes: notes.trim() });
+        if (typeof result === 'string') {
+          sampleId = result;
+          setSavedSampleId(result);
+        } else {
+          setError('Näytteen tallennus epäonnistui.');
+          if (fileRef.current) fileRef.current.value = '';
+          setSaving(false);
+          return;
+        }
+      } catch {
+        setError('Näytteen tallennus epäonnistui.');
+        if (fileRef.current) fileRef.current.value = '';
+        setSaving(false);
+        return;
+      } finally {
+        setSaving(false);
+      }
     }
 
     setUploading(true);
@@ -52,6 +80,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
       for (const file of Array.from(files)) {
         const url = await uploadSamplePhoto(orderId, sampleId, file);
         setPhotos((prev) => [...prev, url]);
+        onPhotoAdded?.(sampleId, url);
       }
     } catch {
       setError('Kuvan lataus epäonnistui.');
@@ -66,6 +95,23 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
       setError('Sijainti on pakollinen.');
       return;
     }
+
+    // If already auto-saved (photo was taken first), just close
+    if (savedSampleId && !editingSample) {
+      // Update with latest notes if changed
+      try {
+        await fetch(`/api/orders/${orderId}/samples/${savedSampleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location: location.trim(), notes: notes.trim() }),
+        });
+      } catch {
+        // Non-critical — sample already saved
+      }
+      onCancel();
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
@@ -80,7 +126,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
   return (
     <div className="bg-white rounded-xl border shadow-sm p-4 space-y-4">
       <h3 className="font-semibold text-gray-900">
-        {editingSample ? 'Muokkaa näytettä' : 'Uusi näyte'}
+        {editingSample ? 'Muokkaa näytettä' : savedSampleId ? 'Näyte tallennettu — lisää kuvia' : 'Uusi näyte'}
       </h3>
 
       {/* Location input */}
@@ -112,42 +158,42 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
         </div>
       </div>
 
-      {/* Photos (only for editing existing samples) */}
-      {editingSample && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Kuvat</label>
+      {/* Camera button — always visible */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Kuvat</label>
 
-          {/* Existing photos */}
-          {photos.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
-              {photos.map((url, i) => (
-                <div key={i} className="relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border">
-                  <img src={url} alt={`Kuva ${i + 1}`} className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Photo previews */}
+        {photos.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-2">
+            {photos.map((url, i) => (
+              <div key={i} className="relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100 border">
+                <img src={url} alt={`Kuva ${i + 1}`} className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* Camera button */}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handlePhotoCapture}
-            className="hidden"
-            multiple
-          />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm font-medium disabled:opacity-50"
-          >
-            {uploading ? 'Ladataan...' : '📷 Ota kuva / Valitse tiedosto'}
-          </button>
-        </div>
-      )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handlePhotoCapture}
+          className="hidden"
+          multiple
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading || saving}
+          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm font-medium disabled:opacity-50"
+        >
+          {uploading ? 'Ladataan...' : saving ? 'Tallennetaan...' : '📷 Ota kuva'}
+        </button>
+        {!savedSampleId && !editingSample && (
+          <p className="text-xs text-gray-400 mt-1">Näyte tallennetaan automaattisesti kun otat kuvan.</p>
+        )}
+      </div>
 
       {/* Notes */}
       <div>
@@ -165,10 +211,6 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
         <div className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</div>
       )}
 
-      {!editingSample && (
-        <p className="text-xs text-gray-400">Kuvia voi lisätä tallentamisen jälkeen.</p>
-      )}
-
       {/* Actions */}
       <div className="flex gap-2">
         <button
@@ -176,7 +218,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel }: SampleF
           disabled={saving}
           className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-semibold text-sm transition-colors"
         >
-          {saving ? 'Tallennetaan...' : 'Tallenna'}
+          {saving ? 'Tallennetaan...' : savedSampleId && !editingSample ? 'Valmis' : 'Tallenna'}
         </button>
         <button
           onClick={onCancel}

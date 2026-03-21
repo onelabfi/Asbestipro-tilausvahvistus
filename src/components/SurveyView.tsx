@@ -36,7 +36,7 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     fetchSamples();
   }, [fetchSamples]);
 
-  const handleAddSample = async (data: { location: string; notes: string }) => {
+  const handleAddSample = async (data: { location: string; notes: string }): Promise<string> => {
     const res = await fetch(`/api/orders/${order.id}/samples`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,8 +45,10 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
     if (!res.ok) {
       throw new Error('Failed to create sample');
     }
+    const created = await res.json();
     await fetchSamples();
-    setShowForm(false);
+    // Don't close form here — let the form decide (it may want to add photos)
+    return created.id;
   };
 
   const handleEditSample = async (data: { location: string; notes: string }) => {
@@ -173,7 +175,8 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
             orderId={order.id}
             editingSample={editingSample}
             onSave={handleEditSample}
-            onCancel={() => setEditingSample(null)}
+            onCancel={() => { setEditingSample(null); fetchSamples(); }}
+            onPhotoAdded={handlePhotoAdded}
           />
         )}
 
@@ -182,7 +185,8 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
           <SampleForm
             orderId={order.id}
             onSave={handleAddSample}
-            onCancel={() => setShowForm(false)}
+            onCancel={() => { setShowForm(false); fetchSamples(); }}
+            onPhotoAdded={handlePhotoAdded}
           />
         )}
       </div>
