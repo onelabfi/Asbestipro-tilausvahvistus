@@ -109,7 +109,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b h-12 flex items-center px-3 gap-3">
+      <div className="lg:hidden print:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b h-12 flex items-center px-3 gap-3">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5"
@@ -126,14 +126,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/30 z-40"
+          className="lg:hidden print:hidden fixed inset-0 bg-black/30 z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-60 bg-gray-900 text-white flex flex-col transform transition-transform lg:translate-x-0 ${
+        className={`print:hidden fixed lg:static inset-y-0 left-0 z-40 w-60 bg-gray-900 text-white flex flex-col transform transition-transform lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -177,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-h-screen lg:ml-0 pt-12 lg:pt-0">
+      <main className="flex-1 min-h-screen lg:ml-0 pt-12 lg:pt-0 print:pt-0">
         {children}
       </main>
     </div>
