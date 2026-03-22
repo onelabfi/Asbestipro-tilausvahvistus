@@ -54,6 +54,13 @@ export default function OrderForm() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Capture browser autofill values that don't trigger onChange
+  const handleBlur = (field: keyof FormData) => (e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value && !form[field]) {
+      update(field, e.target.value);
+    }
+  };
+
   const aika = useMemo(() => {
     if (form.aikaDate && form.aikaTime) return `${form.aikaDate}T${form.aikaTime}`;
     return '';
@@ -158,6 +165,7 @@ export default function OrderForm() {
                 type="text"
                 value={form.postinumero}
                 onChange={(e) => update('postinumero', e.target.value)}
+                onBlur={handleBlur('postinumero')}
                 placeholder="00100"
                 className={inputClass}
               />
@@ -168,6 +176,7 @@ export default function OrderForm() {
                 type="text"
                 value={form.kaupunki}
                 onChange={(e) => update('kaupunki', e.target.value)}
+                onBlur={handleBlur('kaupunki')}
                 className={inputClass}
               />
             </div>
@@ -178,6 +187,7 @@ export default function OrderForm() {
               type="text"
               value={form.kaupunginosa}
               onChange={(e) => update('kaupunginosa', e.target.value)}
+              onBlur={handleBlur('kaupunginosa')}
               placeholder="esim. Töölö"
               className={inputClass}
             />
@@ -260,6 +270,7 @@ export default function OrderForm() {
               type="text"
               value={form.nimi}
               onChange={(e) => update('nimi', e.target.value)}
+              onBlur={handleBlur('nimi')}
               placeholder="Etunimi Sukunimi"
               className={inputClass}
             />
@@ -270,6 +281,7 @@ export default function OrderForm() {
               type="email"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
+              onBlur={handleBlur('email')}
               placeholder="email@esimerkki.fi"
               className={inputClass}
             />
@@ -280,6 +292,7 @@ export default function OrderForm() {
               type="tel"
               value={form.puhelin}
               onChange={(e) => update('puhelin', e.target.value)}
+              onBlur={handleBlur('puhelin')}
               placeholder="+358 40 123 4567"
               className={inputClass}
             />
