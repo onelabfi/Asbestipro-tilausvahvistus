@@ -95,8 +95,11 @@ interface SampleFormProps {
 export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAdded }: SampleFormProps) {
   const parsed = parseLocation(editingSample?.location || '');
   const [sijainti, setSijainti] = useState(parsed.sijainti);
+  const [sijaintiMuu, setSijaintiMuu] = useState('');
   const [kohta, setKohta] = useState(parsed.kohta);
+  const [kohtaMuu, setKohtaMuu] = useState('');
   const [materiaalit, setMateriaalit] = useState<string[]>(parsed.materiaalit);
+  const [materiaaliMuu, setMateriaaliMuu] = useState('');
   const [notes, setNotes] = useState(editingSample?.notes || '');
   const [areaM2, setAreaM2] = useState(editingSample?.area_m2?.toString() || '');
   const [photos, setPhotos] = useState<string[]>(editingSample?.photos || []);
@@ -112,7 +115,12 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
     );
   };
 
-  const getLocation = () => buildLocation(sijainti, kohta, materiaalit);
+  const getLocation = () => {
+    const s = sijainti || sijaintiMuu.trim();
+    const k = kohta || kohtaMuu.trim();
+    const mats = [...materiaalit, ...(materiaaliMuu.trim() ? [materiaaliMuu.trim()] : [])];
+    return buildLocation(s, k, mats);
+  };
 
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -216,35 +224,49 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
         {/* Sijainti */}
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1.5">Sijainti *</label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
             {SIJAINTI_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 type="button"
-                onClick={() => setSijainti(opt)}
+                onClick={() => { setSijainti(opt); setSijaintiMuu(''); }}
                 className={selectClass(sijainti === opt)}
               >
                 {opt}
               </button>
             ))}
           </div>
+          <input
+            type="text"
+            value={sijaintiMuu}
+            onChange={(e) => { setSijaintiMuu(e.target.value); if (e.target.value) setSijainti(''); }}
+            placeholder="Muu..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
         </div>
 
         {/* Kohta */}
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1.5">Kohta</label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mb-1.5">
             {KOHTA_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setKohta(kohta === opt.value ? '' : opt.value)}
+                onClick={() => { setKohta(kohta === opt.value ? '' : opt.value); setKohtaMuu(''); }}
                 className={`${selectClass(kohta === opt.value)} flex-1 py-2.5`}
               >
                 {opt.value} — {opt.label}
               </button>
             ))}
           </div>
+          <input
+            type="text"
+            value={kohtaMuu}
+            onChange={(e) => { setKohtaMuu(e.target.value); if (e.target.value) setKohta(''); }}
+            placeholder="Muu..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
         </div>
 
         {/* Materiaali (multi-select) */}
@@ -252,7 +274,7 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
           <label className="block text-xs font-medium text-gray-500 mb-1.5">
             Materiaali {materiaalit.length > 0 && <span className="text-blue-600">({materiaalit.length})</span>}
           </label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
             {MATERIAALI_OPTIONS.map((mat) => (
               <button
                 key={mat}
@@ -264,6 +286,13 @@ export function SampleForm({ orderId, editingSample, onSave, onCancel, onPhotoAd
               </button>
             ))}
           </div>
+          <input
+            type="text"
+            value={materiaaliMuu}
+            onChange={(e) => setMateriaaliMuu(e.target.value)}
+            placeholder="Muu..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
         </div>
       </div>
 

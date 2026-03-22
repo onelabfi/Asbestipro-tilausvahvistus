@@ -22,6 +22,7 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
   const [kohdeTyyppi, setKohdeTyyppi] = useState<string | null>(order.kohde_tyyppi || null);
   const [kattoMateriaali, setKattoMateriaali] = useState<string | null>(order.katto_materiaali || null);
   const [runkoMateriaali, setRunkoMateriaali] = useState<string | null>(order.runko_materiaali || null);
+  const isMuuKohde = kohdeTyyppi !== null && kohdeTyyppi !== 'pintaremontti' && kohdeTyyppi !== 'purettava';
 
   // Fetch latest order data on mount to get current kohde settings
   useEffect(() => {
@@ -189,7 +190,34 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
             >
               Purettava kohde
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (isMuuKohde) {
+                  setKohdeTyyppi(null);
+                  saveKohdeSettings({ kohde_tyyppi: null });
+                } else {
+                  setKohdeTyyppi('');
+                }
+              }}
+              className={`flex-1 text-xs py-2 rounded-lg border font-medium transition-colors ${
+                isMuuKohde ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-700'
+              }`}
+            >
+              Muu
+            </button>
           </div>
+          {isMuuKohde && (
+            <input
+              type="text"
+              value={kohdeTyyppi ?? ''}
+              onChange={(e) => setKohdeTyyppi(e.target.value)}
+              onBlur={() => saveKohdeSettings({ kohde_tyyppi: kohdeTyyppi })}
+              placeholder="Kirjoita kohteen tyyppi..."
+              autoFocus
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          )}
           {kohdeTyyppi === 'purettava' && (
             <>
               <div>
