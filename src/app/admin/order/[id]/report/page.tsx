@@ -18,16 +18,16 @@ import {
   parseLocationForReport,
 } from '@/lib/reportTexts';
 
-function ReportHeader({ title, subtitle, dateStr }: { title: string; subtitle?: string; dateStr: string }) {
+function ReportHeader({ title, subtitle, dateStr, logo, companyInfo }: { title: string; subtitle?: string; dateStr: string; logo?: string; companyInfo?: string }) {
   return (
     <div className="report-header rounded-t-2xl print:rounded-none px-8 sm:px-10 py-6" style={{ backgroundColor: '#101921' }}>
       <div className="flex items-start justify-between">
         <div>
-          <img src="/logo.png" alt={COMPANY_NAME} className="h-12 mb-2 print:h-10" />
+          <img src={logo || "/logo.png"} alt={COMPANY_NAME} className="h-12 mb-2 print:h-10" />
           <p className="text-[11px] text-white/50">
-            {COMPANY_NAME}, Y-tunnus {COMPANY_YTUNNUS}
+            {companyInfo || `${COMPANY_NAME}, Y-tunnus ${COMPANY_YTUNNUS}`}
           </p>
-          <p className="text-[11px] text-white/50">{COMPANY_ADDRESS}</p>
+          {!companyInfo && <p className="text-[11px] text-white/50">{COMPANY_ADDRESS}</p>}
         </div>
         <div className="text-right">
           <h2 className="text-base font-bold tracking-wide text-white">{title}</h2>
@@ -262,6 +262,8 @@ export default function ReportPage() {
             title="MATERIAALINÄYTTEIDEN ASBESTILABORATORIOANALYYSI"
             subtitle="- Liite kartoitusraporttiin"
             dateStr={dateStr}
+            logo="/onelab logo.png"
+            companyInfo="Onelab"
           />
 
           {/* White content */}
