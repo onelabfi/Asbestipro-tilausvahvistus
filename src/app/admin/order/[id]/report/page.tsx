@@ -59,7 +59,12 @@ export default function ReportPage() {
     setSendStatus('idle');
     try {
       const res = await fetch(`/api/orders/${order.id}/send-report`, { method: 'POST' });
-      setSendStatus(res.ok ? 'sent' : 'error');
+      if (res.ok) {
+        setSendStatus('sent');
+        setOrder({ ...order, report_sent_at: new Date().toISOString() });
+      } else {
+        setSendStatus('error');
+      }
     } catch {
       setSendStatus('error');
     } finally {
@@ -173,8 +178,10 @@ export default function ReportPage() {
             Takaisin
           </button>
         </div>
-        {sendStatus === 'sent' && (
-          <p className="text-green-400 text-xs bg-black/40 px-3 py-1 rounded-lg">✓ Raportti lähetetty asiakkaalle</p>
+        {order.report_sent_at && sendStatus !== 'error' && (
+          <p className="text-green-400 text-xs bg-black/40 px-3 py-1 rounded-lg">
+            ✓ Lähetetty {new Date(order.report_sent_at).toLocaleString('fi-FI')}
+          </p>
         )}
         {sendStatus === 'error' && (
           <p className="text-red-400 text-xs bg-black/40 px-3 py-1 rounded-lg">Lähetys epäonnistui. Yritä uudelleen.</p>

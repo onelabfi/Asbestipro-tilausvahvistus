@@ -136,6 +136,9 @@ export default function OrdersPage() {
               <th className="text-left px-5 py-3 font-medium text-gray-500 cursor-pointer select-none hover:text-gray-700" onClick={() => toggleSort('payment_status')}>
                 Payment{sortIndicator('payment_status')}
               </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Raportti
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -167,11 +170,20 @@ export default function OrdersPage() {
                     {getStatusLabel(o.payment_status)}
                   </span>
                 </td>
+                <td className="px-5 py-3">
+                  {o.report_sent_at ? (
+                    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                      ✓ Lähetetty {new Date(o.report_sent_at).toLocaleDateString('fi-FI')}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300 text-xs">—</span>
+                  )}
+                </td>
               </tr>
             ))}
             {sortedOrders.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
                   No orders
                 </td>
               </tr>

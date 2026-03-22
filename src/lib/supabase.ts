@@ -40,6 +40,7 @@ export type Order = {
   kohde_tyyppi: 'pintaremontti' | 'purettava' | null;
   katto_materiaali: 'pelti' | 'huopa' | 'tiili' | null;
   runko_materiaali: 'puu' | 'tiili' | 'betoni' | null;
+  report_sent_at: string | null;
 };
 
 export type Sample = {

@@ -30,6 +30,12 @@ export async function POST(
       year: 'numeric',
     });
 
+    // Save sent timestamp to database
+    await supabase
+      .from('orders')
+      .update({ report_sent_at: new Date().toISOString() })
+      .eq('id', params.id);
+
     await getResend().emails.send({
       from: 'Suomen Asbestipro Oy <onboarding@resend.dev>',
       to: order.email,
