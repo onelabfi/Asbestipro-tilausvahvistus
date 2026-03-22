@@ -21,7 +21,7 @@ import {
 function ReportHeader({ title, subtitle, dateStr, logo, companyInfo }: { title: string; subtitle?: string; dateStr: string; logo?: string; companyInfo?: string }) {
   return (
     <div className="report-header rounded-t-2xl print:rounded-none px-8 sm:px-10 py-6" style={{ backgroundColor: '#101921' }}>
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <img src={logo || "/logo.png"} alt={COMPANY_NAME} className="h-12 mb-2 print:h-10" />
           <p className="text-[11px] text-white/50">
@@ -140,7 +140,7 @@ export default function ReportPage() {
           <ReportHeader title="ASBESTIKARTOITUSRAPORTTI" dateStr={dateStr} />
 
           {/* White content */}
-          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4">
+          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4 border border-gray-200 border-t-0 rounded-b-2xl print:border-none print:rounded-none">
             {/* Info fields */}
             <table className="w-full mb-6">
               <tbody className="text-[13px]">
@@ -259,7 +259,7 @@ export default function ReportPage() {
         <div className="rounded-2xl shadow-xl overflow-hidden print:rounded-none print:shadow-none">
           {/* Dark header */}
           <ReportHeader
-            title="MATERIAALINÄYTTEIDEN ASBESTILABORATORIOANALYYSI"
+            title="ASBESTILABORATORIOANALYYSI"
             subtitle="- Liite kartoitusraporttiin"
             dateStr={dateStr}
             logo="/onelab logo.png"
@@ -267,7 +267,7 @@ export default function ReportPage() {
           />
 
           {/* White content */}
-          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4">
+          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4 border border-gray-200 border-t-0 rounded-b-2xl print:border-none print:rounded-none">
             {/* Info fields */}
             <table className="w-full mb-6">
               <tbody className="text-[13px]">
