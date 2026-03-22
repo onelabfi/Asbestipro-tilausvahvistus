@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { Order, Sample } from '@/lib/supabase';
+// Extract the storage path from a Supabase signed URL
+// e.g. .../object/sign/sample-photos/orderId/sampleId/file.jpg?token=... → orderId/sampleId/file.jpg
+function toProxyUrl(signedUrl: string): string {
+  try {
+    const url = new URL(signedUrl);
+    const match = url.pathname.match(/\/object\/sign\/sample-photos\/(.+)/);
+    if (match) return `/api/photo-proxy?path=${encodeURIComponent(match[1])}`;
+  } catch {}
+  return signedUrl; // fallback to original
+}
+
 import {
   TUTKIMUSMENETELMAT,
   ANALYYSIVARMUUS,
@@ -298,7 +309,7 @@ export default function PublicReportPage() {
                         {s.photos.map((photoUrl, pi) => (
                           <div key={pi} className="mb-4 break-inside-avoid">
                             <img
-                              src={photoUrl}
+                              src={toProxyUrl(photoUrl)}
                               alt={`Näyte ${i + 1}`}
                               className="max-w-full max-h-[400px] object-contain rounded border border-gray-200"
                             />
