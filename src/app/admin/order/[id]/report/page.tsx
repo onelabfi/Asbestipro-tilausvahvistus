@@ -313,25 +313,11 @@ export default function ReportPage() {
               <tbody className="text-[13px]">
                 <tr>
                   <td className="py-1 pr-8 text-gray-500 w-44">Tilaaja</td>
-                  <td className="py-1 font-medium">
-                    <input
-                      type="text"
-                      value={editTilaaja}
-                      onChange={(e) => setEditTilaaja(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
-                    />
-                  </td>
+                  <td className="py-1 font-medium">{editTilaaja}</td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Näytteenottokohde</td>
-                  <td className="py-1 font-medium">
-                    <input
-                      type="text"
-                      value={editKohde}
-                      onChange={(e) => setEditKohde(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
-                    />
-                  </td>
+                  <td className="py-1 font-medium">{editKohde}</td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Näytteenottaja</td>
@@ -399,6 +385,35 @@ export default function ReportPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Sample photos */}
+            {samples.some((s) => s.photos && s.photos.length > 0) && (
+              <div className="mt-8">
+                <h3 className="text-sm font-semibold mb-4">Näytekuvat</h3>
+                <div className="space-y-4">
+                  {samples.map((s, i) => {
+                    if (!s.photos || s.photos.length === 0) return null;
+                    const { tila, selite } = parseLocationForReport(s.location);
+                    return (
+                      <div key={s.id}>
+                        {s.photos.map((photoUrl, pi) => (
+                          <div key={pi} className="mb-4 break-inside-avoid">
+                            <img
+                              src={photoUrl}
+                              alt={`Näyte ${i + 1}`}
+                              className="max-w-full max-h-[400px] object-contain rounded border border-gray-200"
+                            />
+                            <p className="text-[12px] text-gray-600 mt-1">
+                              Näyte {i + 1}: {tila}, {selite}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

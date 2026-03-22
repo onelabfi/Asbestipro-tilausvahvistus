@@ -207,6 +207,28 @@ export async function POST(req: NextRequest) {
           </div>
         `,
       });
+
+      // Notify admin about new order
+      await getResend().emails.send({
+        from: 'Suomen Asbestipro Oy <onboarding@resend.dev>',
+        to: 'info@asbesti.pro',
+        subject: `Uusi tilaus: ${nimi} — ${osoite}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #1a1a2e;">Uusi tilaus (lasku)</h2>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p><strong>Asiakas:</strong><br/>${nimi}</p>
+            <p><strong>Puhelin:</strong><br/>${puhelin}</p>
+            <p><strong>Sähköposti:</strong><br/>${email}</p>
+            <p><strong>Aika:</strong><br/>${aikaStr}</p>
+            <p><strong>Osoite:</strong><br/>${osoite}<br/>${kaupunginosa}, ${kaupunki}</p>
+            <p><strong>Remontti:</strong><br/>${remontti || '-'}</p>
+            <p><strong>Hinta:</strong><br/>${price.toFixed(2)} €</p>
+            <p><strong>Maksu:</strong><br/>Lasku</p>
+            ${customer_type === 'company' && y_tunnus ? `<p><strong>Y-tunnus:</strong><br/>${y_tunnus}</p>` : ''}
+          </div>
+        `,
+      });
     } catch (emailError) {
       console.error('Email error:', emailError);
     }
