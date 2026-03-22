@@ -31,9 +31,7 @@ function ReportHeader({ title, subtitle, dateStr, logo, companyInfo }: { title: 
         </div>
         <div className="text-right">
           <h2 className="text-base font-bold tracking-wide text-white">{title}</h2>
-          {subtitle && (
-            <p className="text-[11px] text-white/60">{subtitle}</p>
-          )}
+          {subtitle && <p className="text-[11px] text-white/60">{subtitle}</p>}
           <p className="text-[11px] text-white/50 mt-1">{dateStr}</p>
         </div>
       </div>
@@ -41,31 +39,11 @@ function ReportHeader({ title, subtitle, dateStr, logo, companyInfo }: { title: 
   );
 }
 
-export default function ReportPage() {
+export default function PublicReportPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editTilaaja, setEditTilaaja] = useState('');
-  const [editKohde, setEditKohde] = useState('');
-  const [editYleista, setEditYleista] = useState('');
-  const [editPolyavyys, setEditPolyavyys] = useState<Record<string, number>>({});
-  const [sending, setSending] = useState(false);
-  const [sendStatus, setSendStatus] = useState<'idle' | 'sent' | 'error'>('idle');
-
-  const handleSendReport = async () => {
-    if (!order) return;
-    setSending(true);
-    setSendStatus('idle');
-    try {
-      const res = await fetch(`/api/orders/${order.id}/send-report`, { method: 'POST' });
-      setSendStatus(res.ok ? 'sent' : 'error');
-    } catch {
-      setSendStatus('error');
-    } finally {
-      setSending(false);
-    }
-  };
 
   useEffect(() => {
     if (!id) return;
@@ -80,19 +58,6 @@ export default function ReportPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => {
-    if (order) {
-      setEditTilaaja(order.nimi);
-      setEditKohde(order.osoite);
-      setEditYleista(generateYleista(order, samples).join(' '));
-      const polyMap: Record<string, number> = {};
-      samples.forEach((s) => {
-        polyMap[s.id] = s.polyavyys ?? 3;
-      });
-      setEditPolyavyys(polyMap);
-    }
-  }, [order, samples]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#101921' }}>
@@ -104,36 +69,7 @@ export default function ReportPage() {
   if (!order) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#101921' }}>
-        <p className="text-red-400">Tilausta ei löytynyt.</p>
-      </div>
-    );
-  }
-
-  const pendingSamples = samples.filter((s) => s.asbestos_detected === null);
-  if (pendingSamples.length > 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: '#101921' }}>
-        <div className="max-w-md text-center bg-white rounded-2xl p-8 shadow-xl">
-          <div className="text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Tulokset puuttuvat</h2>
-          <p className="text-gray-600 mb-4">
-            Raporttia ei voi luoda ennen kuin kaikkien näytteiden tulokset on syötetty.
-          </p>
-          <div className="text-left bg-gray-50 rounded-lg p-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">Odottavat näytteet:</p>
-            {pendingSamples.map((s, i) => (
-              <p key={s.id} className="text-sm text-gray-700">
-                {i + 1}. {s.location}
-              </p>
-            ))}
-          </div>
-          <button
-            onClick={() => window.history.back()}
-            className="mt-4 text-sm text-blue-600 hover:text-blue-800"
-          >
-            ← Takaisin
-          </button>
-        </div>
+        <p className="text-red-400">Raporttia ei löytynyt.</p>
       </div>
     );
   }
@@ -146,50 +82,26 @@ export default function ReportPage() {
   });
 
   const asbestosSamples = samples.filter((s) => s.asbestos_detected === true);
-  const yleistaParagraphs = generateYleista(order, samples);
+  const yleista = generateYleista(order, samples).join(' ');
 
   return (
     <div className="min-h-screen report-bg text-gray-900 text-[13px] leading-relaxed">
       {/* Print button */}
-      <div className="print:hidden fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => window.print()}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 shadow-lg"
-          >
-            Tulosta / PDF
-          </button>
-          <button
-            onClick={handleSendReport}
-            disabled={sending}
-            className="bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-green-700 shadow-lg disabled:opacity-50"
-          >
-            {sending ? 'Lähetetään...' : 'Lähetä raportti'}
-          </button>
-          <button
-            onClick={() => window.history.back()}
-            className="bg-white/10 text-white/80 px-4 py-2 rounded-lg text-sm font-medium hover:bg-white/20 shadow-lg backdrop-blur"
-          >
-            Takaisin
-          </button>
-        </div>
-        {sendStatus === 'sent' && (
-          <p className="text-green-400 text-xs bg-black/40 px-3 py-1 rounded-lg">✓ Raportti lähetetty asiakkaalle</p>
-        )}
-        {sendStatus === 'error' && (
-          <p className="text-red-400 text-xs bg-black/40 px-3 py-1 rounded-lg">Lähetys epäonnistui. Yritä uudelleen.</p>
-        )}
+      <div className="print:hidden fixed top-4 right-4 z-50">
+        <button
+          onClick={() => window.print()}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 shadow-lg"
+        >
+          Lataa PDF
+        </button>
       </div>
 
       {/* ═══════════════ PAGE 1: ASBESTIKARTOITUSRAPORTTI ═══════════════ */}
       <div className="max-w-[750px] mx-auto px-4 sm:px-6 pt-8 pb-4 print:px-0 print:py-0 print:max-w-none">
         <div className="rounded-2xl shadow-xl overflow-hidden border border-gray-700 print:rounded-none print:shadow-none print:border-none">
-          {/* Dark header */}
           <ReportHeader title="ASBESTIKARTOITUSRAPORTTI" dateStr={dateStr} />
 
-          {/* White content */}
           <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4">
-            {/* Info fields */}
             <table className="w-full mb-6">
               <tbody className="text-[13px]">
                 <tr>
@@ -198,25 +110,11 @@ export default function ReportPage() {
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Tilaaja</td>
-                  <td className="py-1 font-medium">
-                    <input
-                      type="text"
-                      value={editTilaaja}
-                      onChange={(e) => setEditTilaaja(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
-                    />
-                  </td>
+                  <td className="py-1 font-medium">{order.nimi}</td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Kartoituskohde</td>
-                  <td className="py-1 font-medium">
-                    <input
-                      type="text"
-                      value={editKohde}
-                      onChange={(e) => setEditKohde(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
-                    />
-                  </td>
+                  <td className="py-1 font-medium">{order.osoite}</td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Kartoituspäivä</td>
@@ -225,26 +123,17 @@ export default function ReportPage() {
               </tbody>
             </table>
 
-            {/* Yleistä kohteesta */}
             <div className="mb-6">
               <table className="w-full">
                 <tbody>
                   <tr>
                     <td className="py-1 pr-8 text-gray-500 w-40 align-top">Yleistä kohteesta</td>
-                    <td className="py-1">
-                      <textarea
-                        value={editYleista}
-                        onChange={(e) => setEditYleista(e.target.value)}
-                        rows={6}
-                        className="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none rounded px-1 py-0.5 resize-y text-[13px] leading-relaxed print:border-none print:p-0 print:resize-none"
-                      />
-                    </td>
+                    <td className="py-1 leading-relaxed">{yleista}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            {/* Asbestos materials table */}
             {asbestosSamples.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-sm font-bold mb-2">Asbestia sisältävät materiaalit</h3>
@@ -267,16 +156,7 @@ export default function ReportPage() {
                           <td className="py-1.5 pr-3">{selite}</td>
                           <td className="py-1.5 pr-3 text-red-700 font-medium">{s.asbestos_type || '-'}</td>
                           <td className="py-1.5 pr-3">{s.area_m2 ?? '-'}</td>
-                          <td className="py-1.5">
-                            <input
-                              type="number"
-                              value={editPolyavyys[s.id] ?? 3}
-                              onChange={(e) => setEditPolyavyys((prev) => ({ ...prev, [s.id]: Number(e.target.value) }))}
-                              className="w-12 bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 text-center print:border-none"
-                              min={1}
-                              max={5}
-                            />
-                          </td>
+                          <td className="py-1.5">{s.polyavyys ?? 3}</td>
                         </tr>
                       );
                     })}
@@ -285,7 +165,6 @@ export default function ReportPage() {
               </div>
             )}
 
-            {/* Tutkimusmenetelmät */}
             <div className="mb-4">
               <table className="w-full">
                 <tbody>
@@ -297,7 +176,6 @@ export default function ReportPage() {
               </table>
             </div>
 
-            {/* Analyysivarmuus */}
             <div className="mb-8">
               <table className="w-full">
                 <tbody>
@@ -309,7 +187,6 @@ export default function ReportPage() {
               </table>
             </div>
 
-            {/* Signature */}
             <hr className="border-gray-300 mb-4" />
             <div className="ml-40">
               <img
@@ -328,7 +205,6 @@ export default function ReportPage() {
       {/* ═══════════════ PAGE 2: LABORATORIOANALYYSI ═══════════════ */}
       <div className="max-w-[750px] mx-auto px-4 sm:px-6 py-4 print:px-0 print:py-0 print:max-w-none page-break-before">
         <div className="rounded-2xl shadow-xl overflow-hidden border border-gray-700 print:rounded-none print:shadow-none print:border-none">
-          {/* Dark header */}
           <ReportHeader
             title="ASBESTILABORATORIOANALYYSI"
             subtitle="- Liite kartoitusraporttiin"
@@ -337,18 +213,16 @@ export default function ReportPage() {
             companyInfo="Onelab"
           />
 
-          {/* White content */}
           <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4">
-            {/* Info fields */}
             <table className="w-full mb-6">
               <tbody className="text-[13px]">
                 <tr>
                   <td className="py-1 pr-8 text-gray-500 w-44">Tilaaja</td>
-                  <td className="py-1 font-medium">{editTilaaja}</td>
+                  <td className="py-1 font-medium">{order.nimi}</td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Näytteenottokohde</td>
-                  <td className="py-1 font-medium">{editKohde}</td>
+                  <td className="py-1 font-medium">{order.osoite}</td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Näytteenottaja</td>
@@ -361,7 +235,6 @@ export default function ReportPage() {
               </tbody>
             </table>
 
-            {/* Laboratoriotulokset */}
             <h3 className="text-sm font-semibold mb-2">Laboratoriotulokset</h3>
             <table className="w-full border-collapse text-[12px] mb-6">
               <thead>
@@ -384,16 +257,13 @@ export default function ReportPage() {
                       <td className="py-2 pr-3">{i + 1}</td>
                       <td className="py-2 pr-3">{tila}</td>
                       <td className="py-2 pr-3">{selite}</td>
-                      <td className={`py-2 ${s.asbestos_detected ? 'text-red-700 font-semibold' : ''}`}>
-                        {tulos}
-                      </td>
+                      <td className={`py-2 ${s.asbestos_detected ? 'text-red-700 font-semibold' : ''}`}>{tulos}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
 
-            {/* Analysointimenetelmä */}
             <div className="mb-4">
               <table className="w-full">
                 <tbody>
@@ -405,7 +275,6 @@ export default function ReportPage() {
               </table>
             </div>
 
-            {/* Sopimusehdot */}
             <div>
               <table className="w-full">
                 <tbody>
@@ -417,7 +286,6 @@ export default function ReportPage() {
               </table>
             </div>
 
-            {/* Sample photos */}
             {samples.some((s) => s.photos && s.photos.length > 0) && (
               <div className="mt-8">
                 <h3 className="text-sm font-semibold mb-4">Näytekuvat</h3>
@@ -449,10 +317,8 @@ export default function ReportPage() {
         </div>
       </div>
 
-      {/* Spacer for bottom */}
       <div className="h-8 print:hidden" />
 
-      {/* Print styles */}
       <style jsx global>{`
         .report-bg { background-color: #101921; }
         @media print {
@@ -462,7 +328,6 @@ export default function ReportPage() {
           @page { margin: 10mm; size: A4; }
           .page-break-before { break-before: page; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          textarea, input { border: none !important; outline: none !important; resize: none !important; }
         }
         @media screen {
           .page-break-before { margin-top: 0; }
