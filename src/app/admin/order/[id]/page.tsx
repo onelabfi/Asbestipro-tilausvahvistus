@@ -32,6 +32,8 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sent' | 'error'>('idle');
 
   useEffect(() => {
     async function load() {
@@ -45,6 +47,20 @@ export default function OrderDetailPage() {
     }
     load();
   }, [params.id]);
+
+  const handleResendConfirmation = async () => {
+    if (!order) return;
+    setResending(true);
+    setResendStatus('idle');
+    try {
+      const res = await fetch(`/api/orders/${order.id}/resend-confirmation`, { method: 'POST' });
+      setResendStatus(res.ok ? 'sent' : 'error');
+    } catch {
+      setResendStatus('error');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSaveNotes = async () => {
     if (!order) return;
@@ -235,6 +251,21 @@ export default function OrderDetailPage() {
           <hr />
 
           <div className="space-y-2">
+            {/* Resend confirmation email */}
+            <button
+              onClick={handleResendConfirmation}
+              disabled={resending}
+              className="block w-full text-center bg-green-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+            >
+              {resending ? 'Lähetetään...' : 'Lähetä vahvistus uudelleen'}
+            </button>
+            {resendStatus === 'sent' && (
+              <p className="text-center text-green-600 text-xs">✓ Vahvistus lähetetty asiakkaalle</p>
+            )}
+            {resendStatus === 'error' && (
+              <p className="text-center text-red-600 text-xs">Lähetys epäonnistui. Yritä uudelleen.</p>
+            )}
+
             {(order.latitude && order.longitude) ? (
               <a
                 href={`https://www.google.com/maps/dir/?api=1&destination=${order.latitude},${order.longitude}`}
