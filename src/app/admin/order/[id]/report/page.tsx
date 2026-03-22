@@ -135,12 +135,12 @@ export default function ReportPage() {
 
       {/* ═══════════════ PAGE 1: ASBESTIKARTOITUSRAPORTTI ═══════════════ */}
       <div className="max-w-[750px] mx-auto px-4 sm:px-6 pt-8 pb-4 print:px-0 print:py-0 print:max-w-none">
-        <div className="rounded-2xl shadow-xl overflow-hidden print:rounded-none print:shadow-none">
+        <div className="rounded-2xl shadow-xl overflow-hidden border border-gray-700 print:rounded-none print:shadow-none print:border-none">
           {/* Dark header */}
           <ReportHeader title="ASBESTIKARTOITUSRAPORTTI" dateStr={dateStr} />
 
           {/* White content */}
-          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4 border border-gray-200 border-t-0 rounded-b-2xl print:border-none print:rounded-none">
+          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4">
             {/* Info fields */}
             <table className="w-full mb-6">
               <tbody className="text-[13px]">
@@ -256,7 +256,7 @@ export default function ReportPage() {
 
       {/* ═══════════════ PAGE 2: LABORATORIOANALYYSI ═══════════════ */}
       <div className="max-w-[750px] mx-auto px-4 sm:px-6 py-4 print:px-0 print:py-0 print:max-w-none page-break-before">
-        <div className="rounded-2xl shadow-xl overflow-hidden print:rounded-none print:shadow-none">
+        <div className="rounded-2xl shadow-xl overflow-hidden border border-gray-700 print:rounded-none print:shadow-none print:border-none">
           {/* Dark header */}
           <ReportHeader
             title="ASBESTILABORATORIOANALYYSI"
@@ -267,7 +267,7 @@ export default function ReportPage() {
           />
 
           {/* White content */}
-          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4 border border-gray-200 border-t-0 rounded-b-2xl print:border-none print:rounded-none">
+          <div className="bg-white p-8 sm:p-10 print:p-0 print:pt-4">
             {/* Info fields */}
             <table className="w-full mb-6">
               <tbody className="text-[13px]">
