@@ -46,6 +46,10 @@ export default function ReportPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editTilaaja, setEditTilaaja] = useState('');
+  const [editKohde, setEditKohde] = useState('');
+  const [editYleista, setEditYleista] = useState('');
+  const [editPolyavyys, setEditPolyavyys] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -59,6 +63,19 @@ export default function ReportPage() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (order) {
+      setEditTilaaja(order.nimi);
+      setEditKohde(order.osoite);
+      setEditYleista(generateYleista(order, samples).join(' '));
+      const polyMap: Record<string, number> = {};
+      samples.forEach((s) => {
+        polyMap[s.id] = s.polyavyys ?? 3;
+      });
+      setEditPolyavyys(polyMap);
+    }
+  }, [order, samples]);
 
   if (loading) {
     return (
@@ -150,11 +167,25 @@ export default function ReportPage() {
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Tilaaja</td>
-                  <td className="py-1 font-medium">{order.nimi}</td>
+                  <td className="py-1 font-medium">
+                    <input
+                      type="text"
+                      value={editTilaaja}
+                      onChange={(e) => setEditTilaaja(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
+                    />
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Kartoituskohde</td>
-                  <td className="py-1 font-medium">{order.osoite}</td>
+                  <td className="py-1 font-medium">
+                    <input
+                      type="text"
+                      value={editKohde}
+                      onChange={(e) => setEditKohde(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
+                    />
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Kartoituspäivä</td>
@@ -170,12 +201,12 @@ export default function ReportPage() {
                   <tr>
                     <td className="py-1 pr-8 text-gray-500 w-40 align-top">Yleistä kohteesta</td>
                     <td className="py-1">
-                      {yleistaParagraphs.map((p, i) => (
-                        <span key={i}>
-                          {p}
-                          {i < yleistaParagraphs.length - 1 ? ' ' : ''}
-                        </span>
-                      ))}
+                      <textarea
+                        value={editYleista}
+                        onChange={(e) => setEditYleista(e.target.value)}
+                        rows={6}
+                        className="w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none rounded px-1 py-0.5 resize-y text-[13px] leading-relaxed print:border-none print:p-0 print:resize-none"
+                      />
                     </td>
                   </tr>
                 </tbody>
@@ -205,7 +236,16 @@ export default function ReportPage() {
                           <td className="py-1.5 pr-3">{selite}</td>
                           <td className="py-1.5 pr-3 text-red-700 font-medium">{s.asbestos_type || '-'}</td>
                           <td className="py-1.5 pr-3">{s.area_m2 ?? '-'}</td>
-                          <td className="py-1.5">{s.polyavyys ?? '-'}</td>
+                          <td className="py-1.5">
+                            <input
+                              type="number"
+                              value={editPolyavyys[s.id] ?? 3}
+                              onChange={(e) => setEditPolyavyys((prev) => ({ ...prev, [s.id]: Number(e.target.value) }))}
+                              className="w-12 bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 text-center print:border-none"
+                              min={1}
+                              max={5}
+                            />
+                          </td>
                         </tr>
                       );
                     })}
@@ -273,11 +313,25 @@ export default function ReportPage() {
               <tbody className="text-[13px]">
                 <tr>
                   <td className="py-1 pr-8 text-gray-500 w-44">Tilaaja</td>
-                  <td className="py-1 font-medium">{order.nimi}</td>
+                  <td className="py-1 font-medium">
+                    <input
+                      type="text"
+                      value={editTilaaja}
+                      onChange={(e) => setEditTilaaja(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
+                    />
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Näytteenottokohde</td>
-                  <td className="py-1 font-medium">{order.osoite}</td>
+                  <td className="py-1 font-medium">
+                    <input
+                      type="text"
+                      value={editKohde}
+                      onChange={(e) => setEditKohde(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-0 py-0 font-medium print:border-none"
+                    />
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-1 pr-8 text-gray-500">Näytteenottaja</td>
@@ -357,11 +411,12 @@ export default function ReportPage() {
         .report-bg { background-color: #101921; }
         @media print {
           .report-bg { background: white !important; }
-          .report-header { background-color: #101921 !important; }
+          .report-header { background-color: #101921 !important; break-inside: avoid; }
           body { background: white !important; }
           @page { margin: 10mm; size: A4; }
-          .page-break-before { page-break-before: always; }
+          .page-break-before { break-before: page; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          textarea, input { border: none !important; outline: none !important; resize: none !important; }
         }
         @media screen {
           .page-break-before { margin-top: 0; }
