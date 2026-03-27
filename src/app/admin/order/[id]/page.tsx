@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -37,7 +38,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/orders/${params.id}`);
+      const res = await adminFetch(`/api/orders/${params.id}`);
       if (res.ok) {
         const data = await res.json();
         setOrder(data);
@@ -53,7 +54,7 @@ export default function OrderDetailPage() {
     setResending(true);
     setResendStatus('idle');
     try {
-      const res = await fetch(`/api/orders/${order.id}/resend-confirmation`, { method: 'POST' });
+      const res = await adminFetch(`/api/orders/${order.id}/resend-confirmation`, { method: 'POST' });
       setResendStatus(res.ok ? 'sent' : 'error');
     } catch {
       setResendStatus('error');
@@ -65,7 +66,7 @@ export default function OrderDetailPage() {
   const handleSaveNotes = async () => {
     if (!order) return;
     try {
-      const res = await fetch(`/api/orders/${order.id}`, {
+      const res = await adminFetch(`/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: notesValue }),

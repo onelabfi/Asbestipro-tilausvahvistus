@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, getUserFromRequest } from '@/lib/supabase';
 
 // GET /api/orders/[id]/samples — list samples for an order
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data, error } = await getSupabase()
     .from('samples')
     .select('*')
@@ -23,6 +25,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const body = await req.json();
   const { location, notes } = body;
 

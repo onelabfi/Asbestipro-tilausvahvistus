@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import type { Order } from '@/lib/supabase';
@@ -41,7 +42,7 @@ export default function OrdersPage() {
     if (filterCity) params.set('city', filterCity);
     if (filterStatus) params.set('status', filterStatus);
 
-    const res = await fetch(`/api/orders?${params}`);
+    const res = await adminFetch(`/api/orders?${params}`);
     const data = await res.json();
     if (Array.isArray(data)) setOrders(data);
   }, [filterCity, filterStatus]);

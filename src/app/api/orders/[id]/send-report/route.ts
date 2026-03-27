@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, getUserFromRequest } from '@/lib/supabase';
 import { getResend } from '@/lib/resend';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const supabase = getSupabase();
     const { data: order, error } = await supabase

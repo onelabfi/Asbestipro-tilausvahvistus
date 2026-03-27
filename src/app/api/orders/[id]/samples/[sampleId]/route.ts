@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, getUserFromRequest } from '@/lib/supabase';
 
 // PATCH /api/orders/[id]/samples/[sampleId] — update a sample
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; sampleId: string } }
 ) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const body = await req.json();
   const allowedFields = ['location', 'notes', 'photos', 'asbestos_detected', 'asbestos_type', 'lab_notes', 'area_m2', 'polyavyys'];
   const updates: Record<string, unknown> = {};
@@ -36,9 +39,11 @@ export async function PATCH(
 
 // DELETE /api/orders/[id]/samples/[sampleId] — delete sample + photos
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string; sampleId: string } }
 ) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   // First get the sample to find photo paths
   const { data: sample } = await getSupabase()
     .from('samples')

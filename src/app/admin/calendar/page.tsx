@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import FullCalendar from '@fullcalendar/react';
@@ -265,7 +266,7 @@ export default function CalendarPage() {
   }, [isMobile]);
 
   const fetchOrders = useCallback(async () => {
-    const res = await fetch('/api/orders');
+    const res = await adminFetch('/api/orders');
     const data = await res.json();
     if (Array.isArray(data)) setOrders(data);
   }, []);
@@ -300,7 +301,7 @@ export default function CalendarPage() {
     const newAika = newStart.toISOString();
 
     try {
-      const res = await fetch(`/api/orders/${eventId}`, {
+      const res = await adminFetch(`/api/orders/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ aika: newAika }),
@@ -326,7 +327,7 @@ export default function CalendarPage() {
     const aika = `${form.date}T${form.time}:00`;
 
     try {
-      const res = await fetch('/api/orders', {
+      const res = await adminFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -364,7 +365,7 @@ export default function CalendarPage() {
     if (!selected) return;
 
     try {
-      const res = await fetch(`/api/orders/${selected.id}`, {
+      const res = await adminFetch(`/api/orders/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: notesValue }),
@@ -388,7 +389,7 @@ export default function CalendarPage() {
     setMarkingPaid(true);
 
     try {
-      const res = await fetch(`/api/orders/${selected.id}`, {
+      const res = await adminFetch(`/api/orders/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payment_status: 'paid', payment_method: 'manual' }),
@@ -416,7 +417,7 @@ export default function CalendarPage() {
 
     setAddingPayment(true);
     try {
-      const res = await fetch(`/api/orders/${selected.id}`, {
+      const res = await adminFetch(`/api/orders/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ add_payment: amount }),
@@ -444,7 +445,7 @@ export default function CalendarPage() {
     setDeleting(true);
 
     try {
-      const res = await fetch(`/api/orders/${selected.id}`, {
+      const res = await adminFetch(`/api/orders/${selected.id}`, {
         method: 'DELETE',
       });
 
@@ -529,7 +530,7 @@ export default function CalendarPage() {
               setShowAddPayment(false);
               setShowDeleteConfirm(false);
               // Fetch sample count for this order
-              fetch(`/api/orders/${order.id}/samples`)
+              adminFetch(`/api/orders/${order.id}/samples`)
                 .then(r => r.ok ? r.json() : [])
                 .then(data => setSampleCounts(prev => ({ ...prev, [order.id]: Array.isArray(data) ? data.length : 0 })))
                 .catch(() => {});
@@ -856,7 +857,7 @@ export default function CalendarPage() {
           onClose={() => {
             setShowSurvey(false);
             // Refresh sample count
-            fetch(`/api/orders/${selected.id}/samples`)
+            adminFetch(`/api/orders/${selected.id}/samples`)
               .then(r => r.ok ? r.json() : [])
               .then(data => setSampleCounts(prev => ({ ...prev, [selected.id]: Array.isArray(data) ? data.length : 0 })))
               .catch(() => {});

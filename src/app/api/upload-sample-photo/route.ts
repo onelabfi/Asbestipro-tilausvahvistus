@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, getUserFromRequest } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   const orderId = formData.get('orderId') as string | null;

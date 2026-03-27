@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -22,13 +23,13 @@ export default function ReportsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/orders');
+      const res = await adminFetch('/api/orders');
       if (!res.ok) return;
       const allOrders: Order[] = await res.json();
 
       const ordersWithSamples = await Promise.all(
         allOrders.map(async (order) => {
-          const samplesRes = await fetch(`/api/orders/${order.id}/samples`);
+          const samplesRes = await adminFetch(`/api/orders/${order.id}/samples`);
           const samples: Sample[] = samplesRes.ok ? await samplesRes.json() : [];
           const resultsCount = samples.filter((s) => s.asbestos_detected !== null).length;
           const asbestosCount = samples.filter((s) => s.asbestos_detected === true).length;
@@ -65,7 +66,7 @@ export default function ReportsPage() {
       polyavyys: number | null;
     }
   ) => {
-    const res = await fetch(`/api/orders/${orderId}/samples/${sampleId}`, {
+    const res = await adminFetch(`/api/orders/${orderId}/samples/${sampleId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
@@ -30,7 +31,7 @@ export default function MapPage() {
     if (filterCity) params.set('city', filterCity);
     if (filterStatus) params.set('status', filterStatus);
 
-    const res = await fetch(`/api/orders?${params}`);
+    const res = await adminFetch(`/api/orders?${params}`);
     const data = await res.json();
     if (Array.isArray(data)) setOrders(data);
   }, [filterDate, filterCity, filterStatus]);

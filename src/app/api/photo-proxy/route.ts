@@ -11,6 +11,11 @@ export async function GET(req: NextRequest) {
     return new NextResponse('Missing path', { status: 400 });
   }
 
+  // Reject path traversal attempts
+  if (path.includes('..') || path.includes('\0') || path.startsWith('/')) {
+    return new NextResponse('Invalid path', { status: 400 });
+  }
+
   try {
     // Generate a fresh signed URL server-side using the service key
     const { data, error } = await getSupabase()

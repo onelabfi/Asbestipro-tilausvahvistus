@@ -1,4 +1,5 @@
 import imageCompression from 'browser-image-compression';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 /**
  * Compress a photo before upload.
@@ -29,8 +30,10 @@ export async function uploadSamplePhoto(
   formData.append('orderId', orderId);
   formData.append('sampleId', sampleId);
 
+  const { data: { session } } = await getSupabaseBrowser().auth.getSession();
   const res = await fetch('/api/upload-sample-photo', {
     method: 'POST',
+    headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
     body: formData,
   });
 

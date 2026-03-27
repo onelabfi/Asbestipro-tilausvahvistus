@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -58,7 +59,7 @@ export default function ReportPage() {
     setSending(true);
     setSendStatus('idle');
     try {
-      const res = await fetch(`/api/orders/${order.id}/send-report`, { method: 'POST' });
+      const res = await adminFetch(`/api/orders/${order.id}/send-report`, { method: 'POST' });
       if (res.ok) {
         setSendStatus('sent');
         setOrder({ ...order, report_sent_at: new Date().toISOString() });
@@ -75,8 +76,8 @@ export default function ReportPage() {
   useEffect(() => {
     if (!id) return;
     Promise.all([
-      fetch(`/api/orders/${id}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/orders/${id}/samples`).then((r) => (r.ok ? r.json() : [])),
+      adminFetch(`/api/orders/${id}`).then((r) => (r.ok ? r.json() : null)),
+      adminFetch(`/api/orders/${id}/samples`).then((r) => (r.ok ? r.json() : [])),
     ])
       .then(([orderData, samplesData]) => {
         setOrder(orderData);

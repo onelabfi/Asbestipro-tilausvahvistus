@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/admin-fetch';
 
 import { useEffect, useState, useCallback } from 'react';
 import type { Order } from '@/lib/supabase';
@@ -35,7 +36,7 @@ export default function DashboardPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const fetchOrders = useCallback(async () => {
-    const res = await fetch('/api/orders');
+    const res = await adminFetch('/api/orders');
     const data = await res.json();
     if (Array.isArray(data)) setOrders(data);
   }, []);

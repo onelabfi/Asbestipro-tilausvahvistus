@@ -63,6 +63,18 @@ export type UserRole = 'admin' | 'field_user';
  * Find a Quick Note (manual order) that matches by phone number + date (±1 day).
  * Used by tilausvahvistus flows to overwrite placeholder events instead of creating duplicates.
  */
+/** Extract and verify the Supabase user from a Bearer token in the Authorization header. */
+export async function getUserFromRequest(req: import('next/server').NextRequest) {
+  const token = req.headers.get('authorization')?.replace('Bearer ', '');
+  if (!token) return null;
+  const client = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { data: { user } } = await client.auth.getUser(token);
+  return user ?? null;
+}
+
 export async function findMatchingQuickNote(
   puhelin: string,
   aika: string

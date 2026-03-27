@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, getUserFromRequest } from '@/lib/supabase';
 import { calculatePaymentStatus, hasRequiredOrderFields } from '@/lib/payment';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const body = await req.json();
     const { id } = params;
@@ -90,6 +93,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = params;
 
   const { data, error } = await getSupabase()
@@ -106,6 +112,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUserFromRequest(req);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { id } = params;
 
   const { error } = await getSupabase()
