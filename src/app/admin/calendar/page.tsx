@@ -640,12 +640,12 @@ export default function CalendarPage() {
               const district = o.kaupunginosa || o.kaupunki || '';
               const phone = o.puhelin || '';
               return (
-                <div className="px-1 py-0.5 text-xs leading-tight overflow-hidden">
-                  <div className="font-semibold truncate">
-                    {district || <span className="text-yellow-200">⚠ No location</span>}
+                <div className="px-0.5 py-0.5 text-[11px] leading-tight overflow-hidden h-full">
+                  <div className="font-semibold break-words">
+                    {district || <span className="text-yellow-200">⚠</span>}
                   </div>
-                  {phone && (
-                    <div className="opacity-80 truncate">📞 {phone}</div>
+                  {phone && !isMobile && (
+                    <div className="opacity-80 truncate text-[10px]">📞 {phone}</div>
                   )}
                 </div>
               );
