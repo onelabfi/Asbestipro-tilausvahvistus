@@ -275,6 +275,20 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetchOrders();
+
+    // Poll every 30 seconds in the background
+    const interval = setInterval(fetchOrders, 30_000);
+
+    // Refetch immediately when tab/app becomes visible again
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchOrders();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [fetchOrders]);
 
   const events = orders.map((o) => {
