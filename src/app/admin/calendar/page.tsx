@@ -287,7 +287,7 @@ export default function CalendarPage() {
       id: o.id,
       title,
       start: o.aika,
-      end: new Date(new Date(o.aika).getTime() + 30 * 60 * 1000).toISOString(),
+      end: new Date(new Date(o.aika).getTime() + 25 * 60 * 1000).toISOString(),
       backgroundColor: getStatusColor(o.payment_status),
       borderColor: 'transparent',
       extendedProps: o,
