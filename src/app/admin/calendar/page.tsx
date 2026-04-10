@@ -1013,7 +1013,7 @@ export default function CalendarPage() {
                   rel="noopener noreferrer"
                   className="block w-full text-center bg-purple-600 text-white py-3 rounded-lg text-sm font-medium hover:bg-purple-700"
                 >
-                  📄 Luo raportti
+                  📄 Näytä raportti
                 </a>
               )}
               {/* Delete button */}

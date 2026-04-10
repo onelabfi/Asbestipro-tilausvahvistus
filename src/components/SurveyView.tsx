@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Sample, Order } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { SampleCard } from './SampleCard';
 import { SampleForm } from './SampleForm';
 import { LabResultsForm } from './LabResultsForm';
@@ -17,6 +18,15 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingSample, setEditingSample] = useState<Sample | null>(null);
   const [labSample, setLabSample] = useState<Sample | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    getSupabaseBrowser()
+      .from('admin_users')
+      .select('role')
+      .single()
+      .then(({ data }) => setIsAdmin((data as { role: string } | null)?.role === 'admin'));
+  }, []);
 
   // Kohde settings
   const [kohdeTyyppi, setKohdeTyyppi] = useState<string | null>(order.kohde_tyyppi || null);
@@ -282,6 +292,7 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
                 sample={sample}
                 index={index}
                 orderId={order.id}
+                isAdmin={isAdmin}
                 onEdit={(s) => { setEditingSample(s); setShowForm(false); setLabSample(null); }}
                 onDelete={handleDeleteSample}
                 onLabResults={(s) => { setLabSample(s); setShowForm(false); setEditingSample(null); }}
@@ -291,8 +302,8 @@ export function SurveyView({ order, onClose }: SurveyViewProps) {
           </>
         )}
 
-        {/* Lab results form */}
-        {labSample && (
+        {/* Lab results form — admin only */}
+        {isAdmin && labSample && (
           <LabResultsForm
             sample={labSample}
             onSave={handleLabResults}

@@ -8,13 +8,14 @@ interface SampleCardProps {
   sample: Sample;
   index: number;
   orderId: string;
+  isAdmin?: boolean;
   onEdit: (sample: Sample) => void;
   onDelete: (sampleId: string) => void;
   onLabResults: (sample: Sample) => void;
   onPhotoAdded: (sampleId: string, url: string) => void;
 }
 
-export function SampleCard({ sample, index, orderId, onEdit, onDelete, onLabResults, onPhotoAdded }: SampleCardProps) {
+export function SampleCard({ sample, index, orderId, isAdmin = false, onEdit, onDelete, onLabResults, onPhotoAdded }: SampleCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -106,12 +107,14 @@ export function SampleCard({ sample, index, orderId, onEdit, onDelete, onLabResu
 
         {/* Actions */}
         <div className="flex gap-2 pt-2 border-t">
-          <button
-            onClick={() => onLabResults(sample)}
-            className="flex-1 text-xs py-1.5 rounded-lg bg-gray-50 text-gray-700 hover:bg-gray-100 font-medium"
-          >
-            Tulokset
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => onLabResults(sample)}
+              className="flex-1 text-xs py-1.5 rounded-lg bg-gray-50 text-gray-700 hover:bg-gray-100 font-medium"
+            >
+              Tulokset
+            </button>
+          )}
           <button
             onClick={() => onEdit(sample)}
             className="flex-1 text-xs py-1.5 rounded-lg bg-gray-50 text-gray-700 hover:bg-gray-100 font-medium"
