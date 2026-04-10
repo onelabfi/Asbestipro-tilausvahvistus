@@ -287,7 +287,7 @@ export default function CalendarPage() {
       id: o.id,
       title,
       start: o.aika,
-      end: new Date(new Date(o.aika).getTime() + 25 * 60 * 1000).toISOString(),
+      end: new Date(new Date(o.aika).getTime() + 15 * 60 * 1000).toISOString(),
       backgroundColor: getStatusColor(o.payment_status),
       borderColor: 'transparent',
       extendedProps: o,
@@ -597,6 +597,27 @@ export default function CalendarPage() {
               setEditingNotes(false);
               setShowAddPayment(false);
               setShowDeleteConfirm(false);
+              // Auto-open edit mode for events with no location set
+              if (!order.kaupunginosa && !order.kaupunki) {
+                const d = new Date(order.aika);
+                setEditForm({
+                  nimi: order.nimi || '',
+                  puhelin: order.puhelin || '',
+                  email: order.email || '',
+                  osoite: order.osoite || '',
+                  kaupunginosa: '',
+                  kaupunki: '',
+                  postinumero: order.postinumero || '',
+                  remontti: order.remontti || '',
+                  hinta: String(order.hinta || ''),
+                  date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+                  time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+                  notes: order.notes || '',
+                });
+                setEditingOrder(true);
+              } else {
+                setEditingOrder(false);
+              }
               // Fetch sample count for this order
               fetch(`/api/orders/${order.id}/samples`)
                 .then(r => r.ok ? r.json() : [])
@@ -849,7 +870,7 @@ export default function CalendarPage() {
             )}
 
             {/* Survey section */}
-            <div className="mt-4 bg-blue-50 rounded-lg p-3">
+            {!editingOrder && <div className="mt-4 bg-blue-50 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-sm font-semibold text-gray-900">📋 Kartoitus</span>
@@ -866,7 +887,7 @@ export default function CalendarPage() {
                   {(sampleCounts[selected.id] || 0) === 0 ? 'Aloita kartoitus' : `Näytä (${sampleCounts[selected.id]})`}
                 </button>
               </div>
-            </div>
+            </div>}
 
             {/* Add payment inline form */}
             {showAddPayment && (
@@ -922,7 +943,7 @@ export default function CalendarPage() {
             )}
 
             {/* Action buttons */}
-            <div className="mt-6 space-y-2">
+            {!editingOrder && <div className="mt-6 space-y-2">
               {/* Add payment button */}
               {selected.payment_status !== 'paid' && !showAddPayment && (
                 <button
@@ -999,7 +1020,7 @@ export default function CalendarPage() {
                   Delete Event
                 </button>
               )}
-            </div>
+            </div>}
           </div>
         </div>
       )}
