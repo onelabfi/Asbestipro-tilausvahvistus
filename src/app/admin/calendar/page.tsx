@@ -142,6 +142,9 @@ export default function CalendarPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
   const [sampleCounts, setSampleCounts] = useState<Record<string, number>>({});
   const calendarRef = useRef<FullCalendar>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
@@ -323,7 +326,9 @@ export default function CalendarPage() {
     if (!form.date || !form.time || !form.puhelin) return;
     setSaving(true);
 
-    const aika = `${form.date}T${form.time}:00`;
+    // Build a proper local time and convert to ISO with timezone offset
+    const localDate = new Date(`${form.date}T${form.time}:00`);
+    const aika = localDate.toISOString();
 
     try {
       const res = await fetch('/api/orders', {
@@ -460,6 +465,63 @@ export default function CalendarPage() {
     }
   };
 
+  const startEditingOrder = () => {
+    if (!selected) return;
+    const d = new Date(selected.aika);
+    setEditForm({
+      nimi: selected.nimi || '',
+      puhelin: selected.puhelin || '',
+      email: selected.email || '',
+      osoite: selected.osoite || '',
+      kaupunginosa: selected.kaupunginosa || '',
+      kaupunki: selected.kaupunki || '',
+      postinumero: selected.postinumero || '',
+      remontti: selected.remontti || '',
+      hinta: String(selected.hinta || ''),
+      date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      notes: selected.notes || '',
+    });
+    setEditingOrder(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selected) return;
+    setSavingEdit(true);
+    try {
+      const localDate = new Date(`${editForm.date}T${editForm.time}:00`);
+      const aika = localDate.toISOString();
+      const body = {
+        nimi: editForm.nimi,
+        puhelin: editForm.puhelin,
+        email: editForm.email,
+        osoite: editForm.osoite,
+        kaupunginosa: editForm.kaupunginosa,
+        kaupunki: editForm.kaupunki,
+        postinumero: editForm.postinumero,
+        remontti: editForm.remontti,
+        hinta: parseFloat(editForm.hinta) || 0,
+        aika,
+        notes: editForm.notes,
+      };
+      const res = await fetch(`/api/orders/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrders((prev) => prev.map((o) => (o.id === selected.id ? updated : o)));
+        setSelected(updated);
+        setEditingOrder(false);
+      }
+    } catch (err) {
+      console.error('Edit save error:', err);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const remaining = selected ? (selected.hinta || 0) - (selected.maksettu_summa || 0) : 0;
 
   return (
@@ -521,6 +583,13 @@ export default function CalendarPage() {
             snapDuration="00:30:00"
             slotDuration="00:30:00"
             eventDrop={handleEventDrop}
+            dateClick={(info) => {
+              const d = info.date;
+              const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+              setForm({ ...emptyForm, date: dateStr, time: timeStr });
+              setShowAddForm(true);
+            }}
             eventClick={(info) => {
               const order = info.event.extendedProps as Order;
               setSelected(order);
@@ -538,6 +607,8 @@ export default function CalendarPage() {
             slotMinTime="06:00:00"
             slotMaxTime="20:00:00"
             allDaySlot={false}
+            slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+            eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
             eventContent={(arg) => {
               const o = arg.event.extendedProps as Order;
               const district = o.kaupunginosa || o.kaupunki || '';
@@ -561,7 +632,7 @@ export default function CalendarPage() {
       {selected && (
         <div
           className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-          onClick={() => setSelected(null)}
+          onClick={() => { setSelected(null); setEditingOrder(false); }}
         >
           <div
             className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-md w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
@@ -571,21 +642,32 @@ export default function CalendarPage() {
               <div>
                 <h2 className="text-lg font-bold">{selected.kaupunginosa || selected.kaupunki || 'No location'}</h2>
                 <p className="text-sm text-gray-500">
-                  {new Date(selected.aika).toLocaleDateString('en-GB', {
+                  {new Date(selected.aika).toLocaleDateString('fi-FI', {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
+                    hour12: false,
                   })}
                 </p>
               </div>
-              <button
-                onClick={() => setSelected(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl p-1"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                {!editingOrder && (
+                  <button
+                    onClick={startEditingOrder}
+                    className="text-blue-600 text-xs font-medium hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelected(null); setEditingOrder(false); }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl p-1"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
 
             {/* Payment status badge */}
@@ -595,6 +677,78 @@ export default function CalendarPage() {
               </span>
             </div>
 
+            {editingOrder ? (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-500 mb-1">Customer</label>
+                    <input type="text" value={editForm.nimi} onChange={(e) => setEditForm({ ...editForm, nimi: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-1">Phone</label>
+                    <input type="tel" value={editForm.puhelin} onChange={(e) => setEditForm({ ...editForm, puhelin: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Email</label>
+                  <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Address</label>
+                  <input type="text" value={editForm.osoite} onChange={(e) => setEditForm({ ...editForm, osoite: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-500 mb-1">District</label>
+                    <input type="text" value={editForm.kaupunginosa} onChange={(e) => setEditForm({ ...editForm, kaupunginosa: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-1">City</label>
+                    <input type="text" value={editForm.kaupunki} onChange={(e) => setEditForm({ ...editForm, kaupunki: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-1">Postcode</label>
+                    <input type="text" value={editForm.postinumero} onChange={(e) => setEditForm({ ...editForm, postinumero: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-500 mb-1">Date</label>
+                    <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-1">Time</label>
+                    <select value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      {TIME_SLOTS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-500 mb-1">Price (€)</label>
+                    <input type="number" value={editForm.hinta} onChange={(e) => setEditForm({ ...editForm, hinta: e.target.value })} min="0" step="0.01" className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-1">Renovation</label>
+                    <input type="text" value={editForm.remontti} onChange={(e) => setEditForm({ ...editForm, remontti: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Notes</label>
+                  <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={handleSaveEdit} disabled={savingEdit} className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                    {savingEdit ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button onClick={() => setEditingOrder(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -692,6 +846,7 @@ export default function CalendarPage() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Survey section */}
             <div className="mt-4 bg-blue-50 rounded-lg p-3">
@@ -896,7 +1051,7 @@ export default function CalendarPage() {
                 <DistrictAutocomplete
                   value={form.kaupunginosa}
                   city={form.kaupunki}
-                  onChange={(val) => setForm({ ...form, kaupunginosa: val })}
+                  onChange={(val) => setForm((prev) => ({ ...prev, kaupunginosa: val }))}
                   onCityChange={(city) => setForm((prev) => ({ ...prev, kaupunki: city }))}
                   placeholder="e.g. Vihti, Töölö, Espoo..."
                 />
@@ -911,7 +1066,7 @@ export default function CalendarPage() {
                   <input
                     type="date"
                     value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
                     required
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -922,7 +1077,7 @@ export default function CalendarPage() {
                   </label>
                   <select
                     value={form.time}
-                    onChange={(e) => setForm({ ...form, time: e.target.value })}
+                    onChange={(e) => setForm((prev) => ({ ...prev, time: e.target.value }))}
                     required
                     className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -941,7 +1096,7 @@ export default function CalendarPage() {
                 <input
                   type="tel"
                   value={form.puhelin}
-                  onChange={(e) => setForm({ ...form, puhelin: e.target.value })}
+                  onChange={(e) => setForm((prev) => ({ ...prev, puhelin: e.target.value }))}
                   required
                   placeholder="040 123 4567"
                   className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -961,7 +1116,7 @@ export default function CalendarPage() {
                     <input
                       type="text"
                       value={form.nimi}
-                      onChange={(e) => setForm({ ...form, nimi: e.target.value })}
+                      onChange={(e) => setForm((prev) => ({ ...prev, nimi: e.target.value }))}
                       className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -971,7 +1126,7 @@ export default function CalendarPage() {
                     </label>
                     <AddressAutocomplete
                       value={form.osoite}
-                      onChange={(val) => setForm({ ...form, osoite: val })}
+                      onChange={(val) => setForm((prev) => ({ ...prev, osoite: val }))}
                       onSelect={(place) => {
                         setForm((prev) => ({
                           ...prev,
@@ -992,7 +1147,7 @@ export default function CalendarPage() {
                       <input
                         type="email"
                         value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
                         className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -1003,7 +1158,7 @@ export default function CalendarPage() {
                       <input
                         type="number"
                         value={form.hinta}
-                        onChange={(e) => setForm({ ...form, hinta: e.target.value })}
+                        onChange={(e) => setForm((prev) => ({ ...prev, hinta: e.target.value }))}
                         min="0"
                         step="0.01"
                         className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1016,7 +1171,7 @@ export default function CalendarPage() {
                     </label>
                     <textarea
                       value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                      onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
                       rows={2}
                       className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g. sample taken from bathroom"

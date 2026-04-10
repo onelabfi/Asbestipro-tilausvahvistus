@@ -54,8 +54,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       }
     }
 
-    // Recalculate status if maksettu_summa or hinta changed
-    if (body.maksettu_summa !== undefined || body.hinta !== undefined) {
+    // Always recalculate status on any field update (required fields may have changed)
+    {
       const { data: current } = await getSupabase()
         .from('orders')
         .select('*')
@@ -63,9 +63,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         .single();
 
       if (current) {
-        const hinta = body.hinta !== undefined ? body.hinta : current.hinta;
-        const maksettu = body.maksettu_summa !== undefined ? body.maksettu_summa : current.maksettu_summa;
         const merged = { ...current, ...body };
+        const hinta = merged.hinta ?? 0;
+        const maksettu = merged.maksettu_summa ?? 0;
         const hasRequired = hasRequiredOrderFields(merged);
         body.payment_status = calculatePaymentStatus(hinta, maksettu, hasRequired);
       }

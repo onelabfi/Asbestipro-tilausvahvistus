@@ -34,6 +34,9 @@ export default function OrderDetailPage() {
   const [notesValue, setNotesValue] = useState('');
   const [resending, setResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sent' | 'error'>('idle');
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -79,6 +82,63 @@ export default function OrderDetailPage() {
     }
   };
 
+  const startEditing = () => {
+    if (!order) return;
+    const d = new Date(order.aika);
+    setEditForm({
+      nimi: order.nimi || '',
+      puhelin: order.puhelin || '',
+      email: order.email || '',
+      osoite: order.osoite || '',
+      kaupunginosa: order.kaupunginosa || '',
+      kaupunki: order.kaupunki || '',
+      postinumero: order.postinumero || '',
+      remontti: order.remontti || '',
+      hinta: String(order.hinta || ''),
+      date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+      notes: order.notes || '',
+    });
+    setEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!order) return;
+    setSavingEdit(true);
+    try {
+      const localDate = new Date(`${editForm.date}T${editForm.time}:00`);
+      const aika = localDate.toISOString();
+      const body = {
+        nimi: editForm.nimi,
+        puhelin: editForm.puhelin,
+        email: editForm.email,
+        osoite: editForm.osoite,
+        kaupunginosa: editForm.kaupunginosa,
+        kaupunki: editForm.kaupunki,
+        postinumero: editForm.postinumero,
+        remontti: editForm.remontti,
+        hinta: parseFloat(editForm.hinta) || 0,
+        aika,
+        notes: editForm.notes,
+      };
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrder(updated);
+        setNotesValue(updated.notes || '');
+        setEditing(false);
+      }
+    } catch (err) {
+      console.error('Edit save error:', err);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -96,13 +156,14 @@ export default function OrderDetailPage() {
   }
 
   const aikaDate = new Date(order.aika);
-  const aikaStr = aikaDate.toLocaleDateString('en-GB', {
+  const aikaStr = aikaDate.toLocaleDateString('fi-FI', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
   const remaining = (order.hinta || 0) - (order.maksettu_summa || 0);
@@ -120,13 +181,88 @@ export default function OrderDetailPage() {
         <div className="bg-white rounded-xl shadow-sm border p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">{order.kaupunginosa}</h2>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(order.payment_status)}`}>
-              {getStatusLabel(order.payment_status)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(order.payment_status)}`}>
+                {getStatusLabel(order.payment_status)}
+              </span>
+              {!editing && (
+                <button onClick={startEditing} className="text-blue-600 text-xs font-medium hover:underline">
+                  Edit
+                </button>
+              )}
+            </div>
           </div>
 
           <hr />
 
+          {editing ? (
+            <div className="space-y-3 text-sm">
+              <div>
+                <label className="block text-gray-500 mb-1">Customer</label>
+                <input type="text" value={editForm.nimi} onChange={(e) => setEditForm({ ...editForm, nimi: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-500 mb-1">Phone</label>
+                  <input type="tel" value={editForm.puhelin} onChange={(e) => setEditForm({ ...editForm, puhelin: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Email</label>
+                  <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-500 mb-1">Address</label>
+                <input type="text" value={editForm.osoite} onChange={(e) => setEditForm({ ...editForm, osoite: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-500 mb-1">District</label>
+                  <input type="text" value={editForm.kaupunginosa} onChange={(e) => setEditForm({ ...editForm, kaupunginosa: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">City</label>
+                  <input type="text" value={editForm.kaupunki} onChange={(e) => setEditForm({ ...editForm, kaupunki: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Postcode</label>
+                  <input type="text" value={editForm.postinumero} onChange={(e) => setEditForm({ ...editForm, postinumero: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-500 mb-1">Date</label>
+                  <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Time</label>
+                  <input type="time" value={editForm.time} onChange={(e) => setEditForm({ ...editForm, time: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-500 mb-1">Price (€)</label>
+                  <input type="number" value={editForm.hinta} onChange={(e) => setEditForm({ ...editForm, hinta: e.target.value })} min="0" step="0.01" className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-gray-500 mb-1">Renovation</label>
+                  <input type="text" value={editForm.remontti} onChange={(e) => setEditForm({ ...editForm, remontti: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-500 mb-1">Notes</label>
+                <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={3} className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={handleSaveEdit} disabled={savingEdit} className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button onClick={() => setEditing(false)} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-200">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="grid gap-4 text-sm">
             <div>
               <span className="text-gray-500">Customer</span>
@@ -199,10 +335,12 @@ export default function OrderDetailPage() {
               </div>
             )}
           </div>
+          )}
 
           <hr />
 
           {/* Notes */}
+          {!editing && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-500 font-medium">Notes</span>
@@ -247,6 +385,7 @@ export default function OrderDetailPage() {
               </p>
             )}
           </div>
+          )}
 
           <hr />
 
