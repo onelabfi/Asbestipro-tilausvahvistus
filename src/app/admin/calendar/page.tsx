@@ -658,7 +658,7 @@ export default function CalendarPage() {
       {selected && (
         <div
           className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-          onClick={() => { setSelected(null); setEditingOrder(false); }}
+          onClick={() => { if (window.getSelection()?.toString()) return; setSelected(null); setEditingOrder(false); }}
         >
           <div
             className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-md w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
@@ -1049,7 +1049,7 @@ export default function CalendarPage() {
       {showAddForm && (
         <div
           className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
-          onClick={() => setShowAddForm(false)}
+          onClick={() => { if (window.getSelection()?.toString()) return; setShowAddForm(false); }}
         >
           <div
             className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-lg w-full p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
