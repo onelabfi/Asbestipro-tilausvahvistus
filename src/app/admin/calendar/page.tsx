@@ -287,7 +287,7 @@ export default function CalendarPage() {
       id: o.id,
       title,
       start: o.aika,
-      end: new Date(new Date(o.aika).getTime() + 15 * 60 * 1000).toISOString(),
+      end: new Date(new Date(o.aika).getTime() + 30 * 60 * 1000).toISOString(),
       backgroundColor: getStatusColor(o.payment_status),
       borderColor: 'transparent',
       extendedProps: o,
@@ -583,10 +583,15 @@ export default function CalendarPage() {
             snapDuration="00:30:00"
             slotDuration="00:30:00"
             eventDrop={handleEventDrop}
-            dateClick={(info) => {
-              const d = info.date;
+            selectable={true}
+            selectMirror={true}
+            unselectAuto={true}
+            select={(info) => {
+              const d = info.start;
               const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+              const minutes = d.getMinutes();
+              const snapped = minutes < 30 ? '00' : '30';
+              const timeStr = `${String(d.getHours()).padStart(2, '0')}:${snapped}`;
               setForm({ ...emptyForm, date: dateStr, time: timeStr });
               setShowAddForm(true);
             }}
